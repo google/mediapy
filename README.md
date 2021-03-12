@@ -1,16 +1,16 @@
-# `mediapy`: Read/write/show images and videos in an IPython notebook.
+# Read/write/show images and videos in an IPython/Jupyter notebook.
 
 ## Examples:
 
-See extensive examples in the notebook
+See more complete examples in the notebook
 [`mediapy_examples.ipynb`](https://github.com/google/mediapy/blob/main/mediapy_examples.ipynb)
 &mdash;
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]
-(https://colab.research.google.com/github/google/mediapy/blob/main/mediapy_examples.ipynb).
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/google/mediapy/blob/main/mediapy_examples.ipynb).
 
 ### Images:
 
 ```python
+    !pip install -q mediapy
     import mediapy as media
     import numpy as np
 
@@ -24,8 +24,8 @@ See extensive examples in the notebook
     media.show_image(media.color_ramp((128, 128)), height=48, title='ramp')
 
     images = {
-        'original': media.color_ramp(),
-        'brightened': media.color_ramp() * 1.5,
+        'original': image,
+        'brightened': media.to_float01(image) * 1.5,
     }
     media.show_images(images)
 
@@ -39,10 +39,10 @@ See extensive examples in the notebook
     print(video.shape, video.dtype)  # It is a numpy array.
     media.show_video(video)
 
-    media.show_images(video, columns=4)  # Show the video frames side-by-side.
+    media.show_images(video, height=80, columns=4)  # Frames side-by-side.
 
-    video = media.moving_circle((128, 128), num_images=10)
-    media.show_video(video)
+    video2 = media.moving_circle((128, 128), num_images=10)
+    media.show_video(video2)
 
     media.write_video('/tmp/video.mp4', video)
 

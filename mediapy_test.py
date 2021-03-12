@@ -15,9 +15,9 @@
 # limitations under the License.
 """Tests for package mediapy.
 
-To run this test without installing the package:
-  pip install absl-py
-  PYTHONPATH=..:$PYTHONPATH ./mediapy_test.py
+To run this test:
+  pip install -r requirements.txt
+  ./mediapy_test.py
 """
 
 import io
@@ -429,7 +429,7 @@ class MediapyTest(parameterized.TestCase):
 
   def test_show_image_downsampled(self):
     np.random.seed(1)
-    image = np.random.random((256, 256, 3))
+    image = np.random.rand(256, 256, 3)
     for downsample in (False, True):
       htmls = []
       with mock.patch('IPython.display.display', htmls.append):
@@ -491,22 +491,22 @@ class MediapyTest(parameterized.TestCase):
     with tempfile.TemporaryDirectory() as directory_name:
       filename = os.path.join(directory_name, 'test.mp4')
       images = []
-      with media.VideoWriter(filename, shape, fps=fps, bps=bps) as video:
+      with media.VideoWriter(filename, shape, fps=fps, bps=bps) as writer:
         for image in media.moving_circle(shape, num_images):
           image_uint8 = media.to_uint8(image)
-          video.add_image(image_uint8)
+          writer.add_image(image_uint8)
           images.append(image_uint8)
 
-      with media.VideoReader(filename) as video:
-        self.assertEqual(video.num_images, num_images)
-        self.assert_all_equal(video.shape, shape)
-        self.assertEqual(video.fps, fps)
-        self.assertBetween(video.bps, 100_000, 500_000)
-        self.assertEqual(video.metadata.num_images, video.num_images)
-        self.assertEqual(video.metadata.shape, video.shape)
-        self.assertEqual(video.metadata.fps, video.fps)
-        self.assertEqual(video.metadata.bps, video.bps)
-        for index, new_image in enumerate(video):
+      with media.VideoReader(filename) as reader:
+        self.assertEqual(reader.num_images, num_images)
+        self.assert_all_equal(reader.shape, shape)
+        self.assertEqual(reader.fps, fps)
+        self.assertBetween(reader.bps, 100_000, 500_000)
+        self.assertEqual(reader.metadata.num_images, reader.num_images)
+        self.assertEqual(reader.metadata.shape, reader.shape)
+        self.assertEqual(reader.metadata.fps, reader.fps)
+        self.assertEqual(reader.metadata.bps, reader.bps)
+        for index, new_image in enumerate(reader):
           self._check_similar(images[index], new_image, 7.0, f'index={index}')
 
   def test_video_streaming_read_write(self):
@@ -520,12 +520,12 @@ class MediapyTest(parameterized.TestCase):
       filename2 = os.path.join(directory_name, 'test2.mp4')
       media.write_video(filename1, video, fps=fps, bps=bps)
 
-      with media.VideoReader(filename1) as r:
+      with media.VideoReader(filename1) as reader:
         with media.VideoWriter(
-            filename2, r.shape, fps=r.fps, bps=r.bps,
-            encoded_format='yuv420p') as w:
-          for image in r:
-            w.add_image(image)
+            filename2, reader.shape, fps=reader.fps, bps=reader.bps,
+            encoded_format='yuv420p') as writer:
+          for image in reader:
+            writer.add_image(image)
 
       new_video = media.read_video(filename2)
       self._check_similar(video, new_video, 3.0)
@@ -556,6 +556,17 @@ class MediapyTest(parameterized.TestCase):
     with tempfile.TemporaryDirectory() as directory_name:
       path = pathlib.Path(directory_name) / 'test4.mp4'
       media.write_video(path, video, fps=fps, bps=bps, codec='vp9')
+      new_video = media.read_video(path)
+    self.assertEqual(new_video.dtype, np.uint8)
+    self._check_similar(video, new_video, max_rms=5.0)
+
+  def test_video_read_write_odd_dimensions(self):
+    video = media.moving_circle((35, 97), num_images=4, dtype=np.uint8)
+    fps = 60
+    bps = 40_000_000
+    with tempfile.TemporaryDirectory() as directory_name:
+      path = pathlib.Path(directory_name) / 'test5.mp4'
+      media.write_video(path, video, fps=fps, bps=bps)
       new_video = media.read_video(path)
     self.assertEqual(new_video.dtype, np.uint8)
     self._check_similar(video, new_video, max_rms=5.0)
@@ -608,7 +619,7 @@ class MediapyTest(parameterized.TestCase):
 
   def test_show_video_downsampled(self):
     np.random.seed(1)
-    video = np.random.random((5, 64, 128, 3))
+    video = np.random.rand(5, 64, 128, 3)
     for downsample in (False, True):
       htmls = []
       with mock.patch('IPython.display.display', htmls.append):

@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""Package mediapy: Read/write/show images and videos in an IPython notebook.
+"""mediapy: Read/write/show images and videos in an IPython/Jupyter notebook.
 
 Example usage:
 
@@ -787,7 +787,7 @@ def show_images(
     cmap: Union[str, Callable[[np.ndarray], np.ndarray]] = 'gray',
     border: Union[bool, str] = False,
 ) -> None:
-  """Displays a row of images in the IPython notebook.
+  """Displays a row of images in the IPython/Jupyter notebook.
 
   Similar to pyplot.imshow() but showing tighter graphics.
   If show_save.dir is not None, saves each image to a file based on its title.
@@ -983,10 +983,10 @@ class VideoReader(VideoIO, ContextManager[Any]):
   """Context to read a compressed video as an iterable over its images.
 
   Example usage:
-    with VideoReader('/tmp/river.mp4') as video:
-      print(f'Video stores {video.num_images} images with shape={video.shape},'
-            f' at {video.fps} frames/sec and {video.bps} bits/sec.')
-      for image in video:
+    with VideoReader('/tmp/river.mp4') as reader:
+      print(f'Video has {reader.num_images} images with shape={reader.shape},'
+            f' at {reader.fps} frames/sec and {reader.bps} bits/sec.')
+      for image in reader:
         print(image.shape)
 
   Attributes:
@@ -1114,14 +1114,12 @@ class VideoWriter(VideoIO, ContextManager[Any]):
 
   Example usage:
     shape = (480, 640)
-    with VideoWriter('/tmp/v.mp4', shape, fps=60) as video:
+    with VideoWriter('/tmp/v.mp4', shape, fps=60) as writer:
       for image in moving_circle(shape, num_images=60):
-        video.add_image(image)
+        writer.add_image(image)
     show_video(read_video('/tmp/v.mp4'))
 
-  Its attributes include the parameters documented in __init__(), plus:
-    video_shape: The dimensions (height, width) of the output video, which are
-      the dimensions of 'shape' rounded up to even integers.
+  Its attributes include the parameters documented in __init__().
   """
 
   def __init__(self,
@@ -1136,7 +1134,7 @@ class VideoWriter(VideoIO, ContextManager[Any]):
                ffmpeg_args: Union[str, Sequence[str]] = '',
                input_format: str = 'rgb',
                dtype: Any = np.uint8,
-               encoded_format: str = 'yuv420p') -> None:
+               encoded_format: Optional[str] = None) -> None:
     """Initializes video writing.
 
     Bitrate control may be specified using at most one of: bps, qp, or crf.  If
@@ -1147,8 +1145,8 @@ class VideoWriter(VideoIO, ContextManager[Any]):
       path: Output video.  Its suffix (e.g. '.mp4') determines the video
         container format.  The suffix must be '.gif' if the codec is 'gif'.
       shape: 2D spatial dimensions (height, width) of video image frames.  The
-        dimensions should be even.  If any dimension is odd, the image frames
-        are zero-padded to an even dimension and a warning is shown.
+        dimensions must be even if 'encoded_format' has subsampled chroma (e.g.,
+        'yuv420p', 'yuv420p10le').
       fps: Frames-per-second frame rate (default is 60.0 except 25.0 for 'gif').
       codec: Compression algorithm as defined by "ffmpeg -codecs" (e.g., 'h264',
         'hevc', or 'gif').
@@ -1158,7 +1156,7 @@ class VideoWriter(VideoIO, ContextManager[Any]):
       ffmpeg_args: Additional arguments for ffmpeg command (default ''), e.g.
         '-g 30' to introduce I-frames, '-bf 0' to omit B-frames.
       input_format: Format of input images (default 'rgb'):
-        'rgb': Each image has shape=(height, width, 3)
+        'rgb': Each image has shape=(height, width, 3) or (height, width).
         'yuv': Each image has shape=(height, width, 3) with Y, U, V values
         'gray': Each image has shape=(height, width).
       dtype: Expected data type for input images (any float input images are
@@ -1166,8 +1164,9 @@ class VideoWriter(VideoIO, ContextManager[Any]):
         np.uint8: Default
         np.uint16: Necessary when encoding >8 bits/channel.
       encoded_format: Pixel format as defined by "ffmpeg -pix_fmts", e.g.,
-        'yuv420p' (default, 2x2-subsampled chroma), 'yuv444p' (full-res chroma),
-        'yuv420p10le' (10-bit per channel), etc.
+        'yuv420p' (2x2-subsampled chroma), 'yuv444p' (full-res chroma),
+        'yuv420p10le' (10-bit per channel), etc.  The default (None) selects
+        'yuv420p' if all shape dimensions are even, else 'yuv444p'.
 
     Returns:
       None.
@@ -1200,11 +1199,14 @@ class VideoWriter(VideoIO, ContextManager[Any]):
       raise ValueError(f'Type {dtype} is not np.uint8 or np.uint16.')
     self.path = pathlib.Path(path)
     self.shape = shape
-    self.video_shape = tuple(math.ceil(dim / 2) * 2 for dim in shape)
-    if self.video_shape != self.shape:
-      _print_err(f'VideoWriter: padding odd frame dimensions from {self.shape}'
-                 f' to {self.video_shape}.')
-
+    all_dimensions_are_even = all(dim % 2 == 0 for dim in shape)
+    if encoded_format is None:
+      encoded_format = 'yuv420p' if all_dimensions_are_even else 'yuv444p'
+    if not all_dimensions_are_even and encoded_format.startswith(
+        ('yuv42', 'yuvj42')):
+      raise ValueError(
+          f'With encoded_format {encoded_format}, video dimensions must be'
+          f' even, but shape is {shape}.')
     self.fps = fps
     self.codec = codec
     self.ffmpeg_args = ffmpeg_args
@@ -1212,7 +1214,7 @@ class VideoWriter(VideoIO, ContextManager[Any]):
     self.dtype = dtype
     self.encoded_format = encoded_format
     if num_rate_specifications == 0 and not ffmpeg_args:
-      qp = 20 if np.prod(self.video_shape) <= 640 * 480 else 28
+      qp = 20 if np.prod(self.shape) <= 640 * 480 else 28
     self._bitrate_args = (
         (['-vb', f'{bps}'] if bps is not None else []) +
         (['-qp', f'{qp}'] if qp is not None else []) +
@@ -1237,7 +1239,7 @@ class VideoWriter(VideoIO, ContextManager[Any]):
 
       # Writing to stdout using ('-f', 'mp4', '-') would require
       # ('-movflags', 'frag_keyframe+empty_moov') and the result is nonportable.
-      height, width = self.video_shape
+      height, width = self.shape
       command = [
           ffmpeg_path, '-v', 'error', '-f', 'rawvideo', '-vcodec', 'rawvideo',
           '-pix_fmt', input_pix_fmt, '-s', f'{width}x{height}', '-r',
@@ -1285,11 +1287,6 @@ class VideoWriter(VideoIO, ContextManager[Any]):
     if image.shape[:2] != self.shape:
       raise ValueError(f'Image dimensions {image.shape[:2]} do not match'
                        f' those of the initialized video {self.shape}.')
-    if self.video_shape != self.shape:
-      pads = [(0, dim % 2 if i < 2 else 0) for i, dim in enumerate(image.shape)]
-      # With mode='constant', the right and/or bottom edge are assigned zero
-      # values.  An alternative would be 'symmetric' to duplicate edge values.
-      image = np.pad(image, pads, mode='constant')
     if self.input_format == 'yuv':  # Convert from per-pixel YUV to planar YUV.
       image = np.moveaxis(image, 2, 0)
     data = image.tobytes()
@@ -1331,8 +1328,8 @@ def read_video(path_or_url: _StrOrPath, **kwargs: Any) -> np.ndarray:
   Returns:
     A 4D array with dimensions (frame, height, width, channel).
   """
-  with VideoReader(path_or_url, **kwargs) as video:
-    return np.array(tuple(video))
+  with VideoReader(path_or_url, **kwargs) as reader:
+    return np.array(tuple(reader))
 
 
 def write_video(path: _StrOrPath, images: Iterable[np.ndarray],
@@ -1356,9 +1353,9 @@ def write_video(path: _StrOrPath, images: Iterable[np.ndarray],
     dtype = np.uint8
   elif issubclass(dtype.type, np.floating):
     dtype = np.uint16
-  with VideoWriter(path, shape=shape, dtype=dtype, **kwargs) as video:
+  with VideoWriter(path, shape=shape, dtype=dtype, **kwargs) as writer:
     for image in images:
-      video.add_image(image)
+      writer.add_image(image)
 
 
 def compress_video(images: Iterable[np.ndarray],
@@ -1525,7 +1522,7 @@ def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
         f.write(data)
     if codec == 'gif':
       html_string = html_from_compressed_image(
-          data, w, h, title=title, **kwargs, fmt='gif')
+          data, w, h, title=title, fmt='gif', **kwargs)
     else:
       html_string = html_from_compressed_video(
           data, w, h, title=title, **kwargs)
