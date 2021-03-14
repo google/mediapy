@@ -2,10 +2,8 @@
 
 ## Examples:
 
-See more complete examples in the notebook
-[`mediapy_examples.ipynb`](https://github.com/google/mediapy/blob/main/mediapy_examples.ipynb)
-&mdash;
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/google/mediapy/blob/main/mediapy_examples.ipynb).
+| Please see the visuals in the notebook&nbsp; [`mediapy_examples.ipynb`](https://github.com/google/mediapy/blob/main/mediapy_examples.ipynb) &nbsp; &nbsp;  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/google/mediapy/blob/main/mediapy_examples.ipynb) |
+| ----- |
 
 ### Images:
 
