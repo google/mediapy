@@ -1,9 +1,34 @@
 # Read/write/show images and videos in an IPython/Jupyter notebook.
 
+## Documentation
+
+See the [HTML
+docs](https://github.com/google/mediapy/blob/main/html/mediapy/index.html).
+
 ## Examples:
 
-| Please see the visuals in the notebook&nbsp; [`mediapy_examples.ipynb`](https://github.com/google/mediapy/blob/main/mediapy_examples.ipynb) &nbsp; &nbsp;  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/google/mediapy/blob/main/mediapy_examples.ipynb) |
-| ----- |
+See the notebook: &nbsp;
+[`mediapy_examples.ipynb`](https://github.com/google/mediapy/blob/main/mediapy_examples.ipynb)
+&nbsp; &nbsp;
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/google/mediapy/blob/main/mediapy_examples.ipynb)
+&nbsp;
+[![Open in Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/google/mediapy/main?filepath=mediapy_examples.ipynb)
+
+<!--
+DeepNote: The notebook runs correctly on https://deepnote.com/, but it cannot be
+launched from GitHub with a single click.  Instead, one must:
+- Start a notebook.
+- Create a Terminal (console).
+- Within the terminal, enter "git clone https://github.com/google/mediapy.git".
+- Navigate to Files -> mediapy.
+- Open the the *.ipynb notebook.
+
+Kaggle: The notebook also runs correctly on https://www.kaggle.com/ although
+"pip install -q mediapy" requires first changing Settings -> Internet -> Enable,
+which in turn requires a phone number verification.  Also, the notebook cannot
+be launched from GitHub with a single click but must be manually uploaded as a
+file.
+-->
 
 ### Images:
 
@@ -64,4 +89,10 @@ the system PATH.  On Unix, it can be installed using:
 
 ```shell
     apt-get install ffmpeg
+```
+
+or within a notebook using:
+
+```python
+    !command -v ffmpeg >/dev/null || (apt update && apt install -y ffmpeg)
 ```

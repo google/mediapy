@@ -14,62 +14,87 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""mediapy: Read/write/show images and videos in an IPython/Jupyter notebook.
+"""`mediapy`: Read/write/show images and videos in an IPython/Jupyter notebook.
 
-Example usage:
+See the [**online
+documentation**](https://github.com/google/mediapy/blob/main/html/mediapy/index.html).
 
-See also https://github.com/google/mediapy/blob/main/mediapy_examples.ipynb.
+See the examples in the notebook
+[mediapy_examples.ipynb](https://github.com/google/mediapy/blob/main/mediapy_examples.ipynb).
 
-## Images:
+Better yet, [**open the notebook in
+Colab**](https://colab.research.google.com/github/google/mediapy/blob/main/mediapy_examples.ipynb).
 
-# Display an image (2D or 3D numpy array):
-checkerboard = np.kron([[0, 1] * 16, [1, 0] * 16] * 16, np.ones((4, 4)))
-show_image(checkerboard)
+## Image examples
 
-# Read and display an image (either local or from the Web):
-IMAGE = 'https://github.com/hhoppe/data/raw/main/image.png'
-show_image(read_image(IMAGE))
+Display an image (2D or 3D `numpy` array):
+```python
+  checkerboard = np.kron([[0, 1] * 16, [1, 0] * 16] * 16, np.ones((4, 4)))
+  show_image(checkerboard)
+```
 
-# Read and display an image from a local file:
-!wget -q -O /tmp/burano.png {IMAGE}
-show_image(read_image('/tmp/burano.png'))
+Read and display an image (either local or from the Web):
+```python
+  IMAGE = 'https://github.com/hhoppe/data/raw/main/image.png'
+  show_image(read_image(IMAGE))
+```
 
-# Show titled images side-by-side:
-images = {
-    'original': checkerboard,
-    'darkened': checkerboard * 0.7,
-    'random': np.random.rand(32, 32, 3),
-}
-show_images(images, vmin=0.0, vmax=1.0, border=True, height=64)
+Read and display an image from a local file:
+```python
+  !wget -q -O /tmp/burano.png {IMAGE}
+  show_image(read_image('/tmp/burano.png'))
+```
 
-## Videos:
+Show titled images side-by-side:
+```python
+  images = {
+      'original': checkerboard,
+      'darkened': checkerboard * 0.7,
+      'random': np.random.rand(32, 32, 3),
+  }
+  show_images(images, vmin=0.0, vmax=1.0, border=True, height=64)
+```
 
-# Display a video (an iterable of images, e.g., a 3D or 4D array):
-video = moving_circle((100, 100), num_images=10)
-show_video(video)
+## Video examples
 
-# Show the video frames side-by-side:
-show_images(video, columns=6, border=True, height=64)
+Display a video (an iterable of images, e.g., a 3D or 4D array):
+```python
+  video = moving_circle((100, 100), num_images=10)
+  show_video(video)
+```
 
-# Show the frames with their indices:
-show_images({f'{i}': image for i, image in enumerate(video)}, width=32)
+Show the video frames side-by-side:
+```python
+  show_images(video, columns=6, border=True, height=64)
+```
 
-# Read and display a video (either local or from the Web):
-VIDEO = 'https://github.com/hhoppe/data/raw/main/video.mp4'
-show_video(read_video(VIDEO))
+Show the frames with their indices:
+```python
+  show_images({f'{i}': image for i, image in enumerate(video)}, width=32)
+```
 
-# Create and display a looping two-frame GIF video:
-image1 = resize_image(np.random.rand(10, 10, 3), (50, 50))
-show_video([image1, image1 * 0.8], fps=2, codec='gif')
+Read and display a video (either local or from the Web):
+```python
+  VIDEO = 'https://github.com/hhoppe/data/raw/main/video.mp4'
+  show_video(read_video(VIDEO))
+```
 
-# Darken a video frame-by-frame:
-output_path = '/tmp/out.mp4'
-with VideoReader(VIDEO) as r:
-  darken_image = lambda image: to_float01(image) * 0.5
-  with VideoWriter(output_path, shape=r.shape, fps=r.fps, bps=r.bps) as w:
-    for image in r:
-      w.add_image(darken_image(image))
-show_video(read_video(output_path), height=90)
+Create and display a looping two-frame GIF video:
+```python
+  image1 = resize_image(np.random.rand(10, 10, 3), (50, 50))
+  show_video([image1, image1 * 0.8], fps=2, codec='gif')
+```
+
+Darken a video frame-by-frame:
+```python
+  output_path = '/tmp/out.mp4'
+  with VideoReader(VIDEO) as r:
+    darken_image = lambda image: to_float01(image) * 0.5
+    with VideoWriter(output_path, shape=r.shape, fps=r.fps, bps=r.bps) as w:
+      for image in r:
+        w.add_image(darken_image(image))
+  show_video(read_video(output_path), height=90)
+```
 """
 
 import base64
@@ -154,8 +179,7 @@ def _chunked(iterable: Iterable[_T],
 def peek_first(iterator: Iterable[_T]) -> Tuple[_T, Iterable[_T]]:
   """Given an iterator, returns first element and re-initialized iterator.
 
-  Example usage:
-    first_image, images = peek_first(images)
+  >>> first_image, images = peek_first(moving_circle())
 
   Args:
     iterator: An input iterator or iterable.
@@ -184,7 +208,7 @@ def run(args: Union[str, Sequence[str]]) -> None:
 
   Args:
     args: Command to execute, which can be either a string or a sequence of word
-      strings, as in subprocess.run().  If args is a string, the shell is
+      strings, as in `subprocess.run()`.  If `args` is a string, the shell is
       invoked to interpret it.
 
   Raises:
@@ -263,7 +287,7 @@ def to_type(a: Any, dtype: Any) -> np.ndarray:
     dtype: Desired output type (floating-point or unsigned int).
 
   Returns:
-    Array 'a' if it is already of the specified dtype, else a converted array.
+    Array `a` if it is already of the specified dtype, else a converted array.
   """
   a = np.asarray(a)
   dtype = _as_valid_media_type(dtype)
@@ -310,8 +334,8 @@ def to_float01(a: Any, dtype: Any = np.float32) -> np.ndarray:
     dtype: Desired floating-point type if rescaling occurs.
 
   Returns:
-    A new array of dtype values in the range [0.0, 1.0] if the input array 'a'
-    contains unsigned integers; otherwise, array 'a' is returned unchanged.
+    A new array of dtype values in the range [0.0, 1.0] if the input array `a`
+    contains unsigned integers; otherwise, array `a` is returned unchanged.
 
   Scaling is such that uint(0) maps to 0.0 and uint(MAX) maps to 1.0.
   """
@@ -325,7 +349,7 @@ def to_float01(a: Any, dtype: Any = np.float32) -> np.ndarray:
 
 
 def to_uint(a: Any, dtype: Any) -> np.ndarray:
-  """Returns array converted to unsigned-integer dtype; see to_type()."""
+  """Returns array converted to unsigned-integer dtype; see `to_type`."""
   dtype = np.dtype(dtype)
   if not issubclass(dtype.type, np.unsignedinteger):
     raise ValueError(f'Type {dtype} is not an unsigned integer.')
@@ -333,7 +357,7 @@ def to_uint(a: Any, dtype: Any) -> np.ndarray:
 
 
 def to_uint8(a: Any) -> np.ndarray:
-  """Returns array converted to uint8 values; see to_type()."""
+  """Returns array converted to uint8 values; see `to_type`."""
   return to_type(a, np.uint8)
 
 
@@ -342,13 +366,14 @@ def to_uint8(a: Any) -> np.ndarray:
 
 def color_ramp(shape: Tuple[int, int] = (64, 64), *,
                dtype: Any = np.float32) -> np.ndarray:
-  """Returns an image of a red-green color gradient with range [0.0, 1.0].
+  """Returns an image of a red-green color gradient.
 
-  This is useful for quick experimentation and testing.
+  This is useful for quick experimentation and testing.  See also
+  `moving_circle` to generate a sample video.
 
   Args:
     shape: 2D spatial dimensions (height, width) of generated image.
-    dtype: Floating-point precision of pixel values.
+    dtype: Type (uint or floating) of resulting pixel values.
   """
   _check_2d_shape(shape)
   dtype = _as_valid_media_type(dtype)
@@ -363,15 +388,15 @@ def moving_circle(shape: Tuple[int, int] = (256, 256),
                   dtype: Any = np.float32) -> np.ndarray:
   """Returns a video of a circle moving in front of a color ramp.
 
-  This is useful for quick experimentation and testing.
+  This is useful for quick experimentation and testing.  See also `color_ramp`
+  to generate a sample image.
 
-  Example usage:
-    show_video(moving_circle((480, 640), 60))
+  >>> show_video(moving_circle((480, 640), 60))
 
   Args:
     shape: 2D spatial dimensions (height, width) of generated video.
     num_images: Number of video frames.
-    dtype: Floating-point precision of pixel values.
+    dtype: Type (uint or floating) of resulting pixel values.
   """
   _check_2d_shape(shape)
   dtype = np.dtype(dtype)
@@ -483,7 +508,7 @@ def resize_image(image: Any, shape: Tuple[int, int]) -> np.ndarray:
     shape: 2D spatial dimensions (height, width) of output image.
 
   Returns:
-    A resampled image whose spatial dimensions match 'shape'.
+    A resampled image whose spatial dimensions match `shape`.
   """
   image = _as_valid_media_array(image)
   if image.ndim not in (2, 3):
@@ -513,14 +538,14 @@ def resize_image(image: Any, shape: Tuple[int, int]) -> np.ndarray:
 
 def resize_video(video: Iterable[np.ndarray], shape: Tuple[int,
                                                            int]) -> np.ndarray:
-  """Resizes video to specified spatial dimensions using a Lanczos filter.
+  """Resizes `video` to specified spatial dimensions using a Lanczos filter.
 
   Args:
     video: Iterable of images.
     shape: 2D spatial dimensions (height, width) of output video.
 
   Returns:
-    A resampled video whose spatial dimensions match 'shape'.
+    A resampled video whose spatial dimensions match `shape`.
   """
   _check_2d_shape(shape)
   return np.array([resize_image(image, shape) for image in video])
@@ -589,32 +614,12 @@ def write_via_local_file(path: _StrOrPath) -> Generator[str, None, None]:
 
 
 class _ShowSave:
-  """Saves outputs from show_image() and show_video() into files.
-
-  Attributes:
-    dir: Directory into which to save titled images and videos, or None.
-  """
+  """Saves outputs from `show_image` and `show_video` into files."""
   dir: Optional[_StrOrPath] = None
 
   @contextlib.contextmanager
   def to_dir(self, path: _StrOrPath) -> Generator[None, None, None]:
-    """Temporarily sets an output directory for show_image() and show_video().
-
-    Within the context, calls to show_*() with title information, including
-    show_image() and show_video(), have their results also saved as files in
-    'directory_name'.
-
-    Example usage:
-      with show_save.to_dir('/tmp'):
-        show_image(image, title='image_A')  # Also creates /tmp/image_A.png.
-        show_video(video, title='video_2')  # Also creates /tmp/video_2.mp4.
-
-    Args:
-      path: Directory into which the images and videos are written.
-
-    Yields:
-      None.
-    """
+    """Temporarily sets output directory for show_image() and show_video()."""
     previous_dir = self.dir
     try:
       self.dir = path
@@ -624,6 +629,22 @@ class _ShowSave:
 
 
 show_save = _ShowSave()
+"""Functionality to save all titled output from `show_*()` calls into files.
+
+If `dir` attribute of `show_save` is not None, all titled images and videos
+displayed by `show_image`, `show_images`, `show_video`, and `show_videos` are
+also saved as files within the specified directory.
+
+The context `to_dir(directory_name)` temporarily assigns the
+`dir` attribute:
+
+>>> with show_save.to_dir('/tmp'):
+...   show_image(image, title='image1')  # Creates /tmp/image1.png.
+...   show_video(video, title='video2')  # Creates /tmp/video2.mp4.
+
+Attributes:
+  dir: Directory into which to save titled images and videos, or None.
+"""
 
 ## Image I/O.
 
@@ -636,7 +657,18 @@ def read_image(path_or_url: _StrOrPath, *, dtype: Any = np.uint8) -> np.ndarray:
 
 
 def write_image(path: _StrOrPath, image: np.ndarray, **kwargs: Any) -> None:
-  """Writes an image (uint{8,16} or float [0.0, 1.0] (clamped)) to a file."""
+  """Writes an image to a file.
+
+  Encoding is performed using `PIL`, which supports `uint8` images with 1, 3,
+  or 4 channels and `uint16` images with a single channel.
+
+  Args:
+    path: Path of output file.
+    image: Array-like object.  If its type is float, it is converted to np.uint8
+      using `to_uint8` (thus clamping to the input to the range [0.0, 1.0]).
+      Otherwise it must be np.uint8 or np.uint16.
+    **kwargs: Additional parameters for `PIL.Image.save()`.
+  """
   if issubclass(image.dtype.type, np.floating):
     image = to_uint8(image)
   with _open(path, 'wb') as f:
@@ -655,9 +687,9 @@ def to_rgb(
   Args:
     array: Scalar values, with arbitrary shape.
     vmin: Explicit min value for remapping; if None, it is obtained as the
-      minimum finite value of 'array'.
+      minimum finite value of `array`.
     vmax: Explicit max value for remapping; if None, it is obtained as the
-      maximum finite value of 'array'.
+      maximum finite value of `array`.
     cmap: A pyplot color map or callable, to map from 1D value to 3D or 4D
       color.
 
@@ -694,7 +726,7 @@ def compress_image(image: np.ndarray,
   Args:
     image: Array in a format supported by PIL, e.g. np.uint8 or np.uint16.
     fmt: Desired compression encoding, e.g. 'png'.
-    **kwargs: Options for PIL.save(), e.g. 'optimize=True' for greater
+    **kwargs: Options for `PIL.save()`, e.g. `optimize=True` for greater
       compression.
   """
   with io.BytesIO() as output:
@@ -722,7 +754,8 @@ def html_from_compressed_image(data: bytes,
     width: Width of HTML image in pixels.
     height: Height of HTML image in pixels.
     title: Optional text shown centered above image.
-    border: If bool, whether image has black boundary, or if str, css style.
+    border: If `bool`, whether to place a black boundary around the image, or if
+      `str`, the boundary CSS style.
     fmt: Compression encoding.
   """
   b64 = base64.b64encode(data).decode('utf-8')
@@ -757,19 +790,19 @@ def show_image(image: Any,
                **kwargs: Any) -> None:
   """Displays an image in the notebook and optionally saves it to a file.
 
-  See show_images().
+  See `show_images`.
 
-  Example usage:
-    show_image(np.random.rand(100, 100))
-    show_image(np.random.randint(0, 256, size=(100, 100, 3), dtype='uint8'))
-    show_image(np.random.rand(10, 10) - 0.5, cmap='bwr', height=100)
-    show_image(read_image('/tmp/image.png'))
-    show_image(read_image('https://github.com/hhoppe/data/raw/main/image.png'))
+  >>> show_image(np.random.rand(100, 100))
+  >>> show_image(np.random.randint(0, 256, size=(80, 80, 3), dtype='uint8'))
+  >>> show_image(np.random.rand(10, 10) - 0.5, cmap='bwr', height=100)
+  >>> show_image(read_image('/tmp/image.png'))
+  >>> url = 'https://github.com/hhoppe/data/raw/main/image.png'
+  >>> show_image(read_image(url))
 
   Args:
     image: 2D array-like, or 3D array-like with 1, 3, or 4 channels.
     title: Optional text shown centered above the image.
-    **kwargs: See show_images().
+    **kwargs: See `show_images`.
   """
   show_images([image], [title], **kwargs)
 
@@ -789,28 +822,30 @@ def show_images(
 ) -> None:
   """Displays a row of images in the IPython/Jupyter notebook.
 
-  Similar to pyplot.imshow() but showing tighter graphics.
-  If show_save.dir is not None, saves each image to a file based on its title.
+  If ```show_save.dir``` is not None, saves each titled image to a file based
+  on the title.
 
-  Example usage:
-    image1, image2 = np.random.rand(64, 64, 3), color_ramp((64, 64))
-    show_images([image1, image2])
-    show_images({'random image': image1, 'color ramp': image2}, height=128)
-    show_images([image1, image2] * 5, columns=4, border=True)
+  >>> image1, image2 = np.random.rand(64, 64, 3), color_ramp((64, 64))
+  >>> show_images([image1, image2])
+  >>> show_images({'random image': image1, 'color ramp': image2}, height=128)
+  >>> show_images([image1, image2] * 5, columns=4, border=True)
 
   Args:
-    images: Iterable of images, or dictionary of {title: image}.  Each image
+    images: Iterable of images, or dictionary of `{title: image}`.  Each image
       must be either a 2D array or a 3D array with 1, 3, or 4 channels.
     titles: Optional strings shown above the corresponding images.
     width: Optional, overrides displayed width (in pixels).
     height: Optional, overrides displayed height (in pixels).
     downsample: If True, each image whose width or height is greater than the
-      specified 'height' or 'width' is resampled to the display resolution.
+      specified `height` or `width` is resampled to the display resolution. This
+      improves antialiasing and reduces the size of the notebook.
     columns: Optional, maximum number of images per row.
     vmin: For single-channel image, explicit min value for display.
     vmax: For single-channel image, explicit max value for display.
-    cmap: For 1-channel, pyplot color map or callable to map 1D to 3D color.
-    border: If bool, whether images have black boundary, or if str, css style.
+    cmap: For single-channel image, pyplot color map or callable to map 1D to 3D
+      color.
+    border: If `bool`, whether to place a black boundary around the image, or if
+      `str`, the boundary CSS style.
   """
   if isinstance(images, collections.abc.Mapping):
     if titles is not None:
@@ -895,7 +930,7 @@ def _get_ffmpeg_path() -> str:
 
 
 def video_is_available() -> bool:
-  """Returns True if the program FFMPEG_NAME is found."""
+  """Returns True if the program `FFMPEG_NAME` is found."""
   return _search_for_ffmpeg_path() is not None
 
 
@@ -960,7 +995,7 @@ def _get_video_metadata(path: _StrOrPath) -> VideoMetadata:
 
 
 class VideoIO:
-  """Base class for VideoReader and VideoWriter."""
+  """Base class for `VideoReader` and `VideoWriter`."""
 
   def _get_pix_fmt(self, dtype: Any, image_format: str) -> str:
     """Returns ffmpeg pix_fmt given data type and image format."""
@@ -982,19 +1017,23 @@ class VideoIO:
 class VideoReader(VideoIO, ContextManager[Any]):
   """Context to read a compressed video as an iterable over its images.
 
-  Example usage:
-    with VideoReader('/tmp/river.mp4') as reader:
-      print(f'Video has {reader.num_images} images with shape={reader.shape},'
-            f' at {reader.fps} frames/sec and {reader.bps} bits/sec.')
-      for image in reader:
-        print(image.shape)
+  >>> with VideoReader('/tmp/river.mp4') as reader:
+  ...   print(f'Video has {reader.num_images} images with shape={reader.shape},'
+  ...         f' at {reader.fps} frames/sec and {reader.bps} bits/sec.')
+  ...   for image in reader:
+  ...     print(image.shape)
 
   Attributes:
     path_or_url: Location of input video.
-    output_format: Format of output images; see __init__().
-    dtype: Data type for output images.
+    output_format: Format of output images (default 'rgb'):
+      - 'rgb': Each image has shape=(height, width, 3) with R, G, B values.
+      - 'yuv': Each image has shape=(height, width, 3) with Y, U, V values.
+      - 'gray': Each image has shape=(height, width).
+    dtype: Data type for output images:
+      - np.uint8: Default.
+      - np.uint16: Allows reading 10-bit or 12-bit data without precision loss.
     metadata: Object storing the information retrieved from the video header.
-      The next attributes are copies of the metadata fields.
+      Its attributes are copied as attributes in this class.
     num_images: Number of frames that is expected from the video stream.  This
       is estimated from the framerate and the duration stored in the video
       header, so it might be inexact.
@@ -1018,18 +1057,7 @@ class VideoReader(VideoIO, ContextManager[Any]):
                *,
                output_format: str = 'rgb',
                dtype: Any = np.uint8):
-    """Initializes video reading.
-
-    Args:
-      path_or_url: Location of input video.
-      output_format: Format of output images (default 'rgb'):
-        'rgb': Each image has shape=(height, width, 3)
-        'yuv': Each image has shape=(height, width, 3) with Y, U, V values
-        'gray': Each image has shape=(height, width).
-      dtype: Data type for output images:
-        np.uint8: Default
-        np.uint16: Allows reading 10-bit or 12-bit data without precision loss.
-    """
+    """Initializes video reading from the specified path or url."""
     if output_format not in {'rgb', 'yuv', 'gray'}:
       raise ValueError(
           f'Output format {output_format} is not rgb, yuv, or gray.')
@@ -1112,14 +1140,46 @@ class VideoReader(VideoIO, ContextManager[Any]):
 class VideoWriter(VideoIO, ContextManager[Any]):
   """Context to write a compressed video.
 
-  Example usage:
-    shape = (480, 640)
-    with VideoWriter('/tmp/v.mp4', shape, fps=60) as writer:
-      for image in moving_circle(shape, num_images=60):
-        writer.add_image(image)
-    show_video(read_video('/tmp/v.mp4'))
+  >>> shape = (480, 640)
+  >>> with VideoWriter('/tmp/v.mp4', shape, fps=60) as writer:
+  ...   for image in moving_circle(shape, num_images=60):
+  ...     writer.add_image(image)
+  >>> show_video(read_video('/tmp/v.mp4'))
 
-  Its attributes include the parameters documented in __init__().
+
+  Bitrate control may be specified using at most one of: `bps`, `qp`, or `crf`.
+  If none are specified, `qp` is set to a default value.
+  See https://slhck.info/video/2017/03/01/rate-control.html
+
+  If codec is 'gif', the args `bps`, `qp`, `crf`, and `encoded_format` are
+  ignored.
+
+  Attributes:
+    path: Output video.  Its suffix (e.g. '.mp4') determines the video container
+      format.  The suffix must be '.gif' if the codec is 'gif'.
+    shape: 2D spatial dimensions (height, width) of video image frames.  The
+      dimensions must be even if 'encoded_format' has subsampled chroma (e.g.,
+      'yuv420p' or 'yuv420p10le').
+    fps: Frames-per-second frame rate (default is 60.0 except 25.0 for 'gif').
+    codec: Compression algorithm as defined by "ffmpeg -codecs" (e.g., 'h264',
+      'hevc', 'vp9', or 'gif').
+    bps: Requested average bits-per-second bitrate (default None).
+    qp: Quantization parameter for video compression quality (default None).
+    crf: Constant rate factor for video compression quality (default None).
+    ffmpeg_args: Additional arguments for `ffmpeg` command, e.g. '-g 30' to
+      introduce I-frames, or '-bf 0' to omit B-frames.
+    input_format: Format of input images (default 'rgb'):
+      - 'rgb': Each image has shape=(height, width, 3) or (height, width).
+      - 'yuv': Each image has shape=(height, width, 3) with Y, U, V values.
+      - 'gray': Each image has shape=(height, width).
+    dtype: Expected data type for input images (any float input images are
+      converted to `dtype`):
+      - np.uint8: Default.
+      - np.uint16: Necessary when encoding >8 bits/channel.
+    encoded_format: Pixel format as defined by `ffmpeg -pix_fmts`, e.g.,
+      'yuv420p' (2x2-subsampled chroma), 'yuv444p' (full-res chroma),
+      'yuv420p10le' (10-bit per channel), etc.  The default (None) selects
+      'yuv420p' if all shape dimensions are even, else 'yuv444p'.
   """
 
   def __init__(self,
@@ -1135,45 +1195,7 @@ class VideoWriter(VideoIO, ContextManager[Any]):
                input_format: str = 'rgb',
                dtype: Any = np.uint8,
                encoded_format: Optional[str] = None) -> None:
-    """Initializes video writing.
-
-    Bitrate control may be specified using at most one of: bps, qp, or crf.  If
-    none are specified, qp is set to a default value.
-    See https://slhck.info/video/2017/03/01/rate-control.html
-
-    Args:
-      path: Output video.  Its suffix (e.g. '.mp4') determines the video
-        container format.  The suffix must be '.gif' if the codec is 'gif'.
-      shape: 2D spatial dimensions (height, width) of video image frames.  The
-        dimensions must be even if 'encoded_format' has subsampled chroma (e.g.,
-        'yuv420p', 'yuv420p10le').
-      fps: Frames-per-second frame rate (default is 60.0 except 25.0 for 'gif').
-      codec: Compression algorithm as defined by "ffmpeg -codecs" (e.g., 'h264',
-        'hevc', or 'gif').
-      bps: Requested average bits-per-second bitrate (default None).
-      qp: Quantization parameter for video compression quality (default None).
-      crf: Constant rate factor for video compression quality (default None).
-      ffmpeg_args: Additional arguments for ffmpeg command (default ''), e.g.
-        '-g 30' to introduce I-frames, '-bf 0' to omit B-frames.
-      input_format: Format of input images (default 'rgb'):
-        'rgb': Each image has shape=(height, width, 3) or (height, width).
-        'yuv': Each image has shape=(height, width, 3) with Y, U, V values
-        'gray': Each image has shape=(height, width).
-      dtype: Expected data type for input images (any float input images are
-        converted to dtype):
-        np.uint8: Default
-        np.uint16: Necessary when encoding >8 bits/channel.
-      encoded_format: Pixel format as defined by "ffmpeg -pix_fmts", e.g.,
-        'yuv420p' (2x2-subsampled chroma), 'yuv444p' (full-res chroma),
-        'yuv420p10le' (10-bit per channel), etc.  The default (None) selects
-        'yuv420p' if all shape dimensions are even, else 'yuv444p'.
-
-    Returns:
-      None.
-
-    If codec is 'gif', the args 'bps', 'qp', 'crf', and 'encoded_format'
-    are ignored.
-    """
+    """Initializes video writing to the specified path."""
     _check_2d_shape(shape)
     if fps is None:
       fps = 25.0 if codec == 'gif' else 60.0
@@ -1209,6 +1231,9 @@ class VideoWriter(VideoIO, ContextManager[Any]):
           f' even, but shape is {shape}.')
     self.fps = fps
     self.codec = codec
+    self.bps = bps
+    self.qp = qp
+    self.crf = crf
     self.ffmpeg_args = ffmpeg_args
     self.input_format = input_format
     self.dtype = dtype
@@ -1261,12 +1286,12 @@ class VideoWriter(VideoIO, ContextManager[Any]):
     """Writes a video frame.
 
     Args:
-      image: Array whose dtype and first two dimensions must match the 'dtype'
-        and 'shape' specified in VideoWriter initialization.  If 'input_format'
-        is 'gray', the image must be 2D.  For the 'rgb' input_format, the image
-        may be either 2D (interpreted as grayscale) or 3D with three (R, G, B)
-        channels.  For the 'yuv' input_format, the image must be 3D with three
-        (Y, U, V) channels.
+      image: Array whose dtype and first two dimensions must match the `dtype`
+        and `shape` specified in `VideoWriter` initialization.  If
+        `input_format` is 'gray', the image must be 2D.  For the 'rgb'
+        input_format, the image may be either 2D (interpreted as grayscale) or
+        3D with three (R, G, B) channels.  For the 'yuv' input_format, the image
+        must be 3D with three (Y, U, V) channels.
 
     Raises:
       RuntimeError: If there is an error writing to the output file.
@@ -1316,14 +1341,14 @@ class VideoWriter(VideoIO, ContextManager[Any]):
 def read_video(path_or_url: _StrOrPath, **kwargs: Any) -> np.ndarray:
   """Returns a 4D array containing all images from a compressed video file.
 
-  Example usage:
-    video = read_video('/tmp/river.mp4')
-    show_video(video)
-    show_video(read_video('https://github.com/hhoppe/data/raw/main/video.mp4'))
+  >>> video = read_video('/tmp/river.mp4')
+  >>> show_video(video)
+  >>> url = 'https://github.com/hhoppe/data/raw/main/video.mp4'
+  >>> show_video(read_video(url))
 
   Args:
     path_or_url: Input video file.
-    **kwargs: Additional parameters for VideoReader.
+    **kwargs: Additional parameters for `VideoReader`.
 
   Returns:
     A 4D array with dimensions (frame, height, width, channel).
@@ -1336,15 +1361,15 @@ def write_video(path: _StrOrPath, images: Iterable[np.ndarray],
                 **kwargs: Any) -> None:
   """Writes images to a compressed video file.
 
-  Example usage:
-    video = moving_circle((480, 640), num_images=60)
-    write_video('/tmp/v.mp4', video, fps=60.0, qp=18)
-    show_video(read_video('/tmp/v.mp4'))
+  >>> video = moving_circle((480, 640), num_images=60)
+  >>> write_video('/tmp/v.mp4', video, fps=60.0, qp=18)
+  >>> show_video(read_video('/tmp/v.mp4'))
 
   Args:
     path: Output video file.
-    images: Iterable over video frames, e.g. a 4D array or a list of 3D arrays.
-    **kwargs: Additional parameters for VideoWriter.
+    images: Iterable over video frames, e.g. a 4D array or a list of 2D or 3D
+      arrays.
+    **kwargs: Additional parameters for `VideoWriter`.
   """
   first_image, images = peek_first(images)
   shape = first_image.shape[:2]
@@ -1364,18 +1389,17 @@ def compress_video(images: Iterable[np.ndarray],
                    **kwargs: Any) -> bytes:
   """Returns a buffer containing a compressed video.
 
-  The video container is 'mp4' except when the codec is 'gif'.
+  The video container is 'mp4' except when `codec` is 'gif'.
 
-  Example usage:
-    video = read_video('/tmp/river.mp4')
-    data = compress_video(video, fps=30.0, bps=10_000_000)
-    print(len(data))
+  >>> video = read_video('/tmp/river.mp4')
+  >>> data = compress_video(video, fps=30.0, bps=10_000_000)
+  >>> print(len(data))
 
   Args:
     images: Iterable over video frames.
-    codec: Compression algorithm as defined by "ffmpeg -codecs" (e.g., 'h264',
-      'hevc', or 'gif').
-    **kwargs: Additional parameters for VideoWriter.
+    codec: Compression algorithm as defined by `ffmpeg -codecs` (e.g., 'h264',
+      'hevc', 'vp9', or 'gif').
+    **kwargs: Additional parameters for `VideoWriter`.
 
   Returns:
     A bytes buffer containing the compressed video.
@@ -1410,7 +1434,8 @@ def html_from_compressed_video(data: bytes,
     width: Width of HTML video in pixels.
     height: Height of HTML video in pixels.
     title: Optional text shown centered above the video.
-    border: If bool, whether image has black boundary, or if str, css style.
+    border: If `bool`, whether to place a black boundary around the image, or if
+      `str`, the boundary CSS style.
     loop: If True, the playback repeats forever.
     autoplay: If True, video playback starts without having to click.
   """
@@ -1437,19 +1462,18 @@ def show_video(images: Iterable[np.ndarray],
                **kwargs: Any) -> None:
   """Displays a video in the IPython notebook and optionally saves it to a file.
 
-  See show_videos().
+  See `show_videos`.
 
-  Example usage:
-    video = read_video('https://github.com/hhoppe/data/raw/main/video.mp4')
-    show_video(video, title='River video', fps=10.0)
+  >>> video = read_video('https://github.com/hhoppe/data/raw/main/video.mp4')
+  >>> show_video(video, title='River video', fps=10.0)
 
-    show_video(moving_circle((100, 100), num_images=10), border=True)
-    show_video(read_video('/tmp/river.mp4'))
+  >>> show_video(moving_circle((80, 80), num_images=10), border=True)
+  >>> show_video(read_video('/tmp/river.mp4'))
 
   Args:
     images: Iterable of video frames.
     title: Optional text shown centered above the video.
-    **kwargs: See show_videos().
+    **kwargs: See `show_videos`.
   """
   show_videos([images], [title], **kwargs)
 
@@ -1469,29 +1493,31 @@ def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
                 **kwargs: Any) -> None:
   """Displays a row of videos in the IPython notebook.
 
-  Creates HTML with <video> tags containing embedded H264-encoded bytestrings.
-  If 'codec' is set to 'gif', we instead use <img> tags containing embedded
-  gif-encoded bytestrings.  Note that the resulting GIF animations skip frames
-  when the fps period is not a multiple of 10ms units (GIF frame delay units).
-  Encoding at fps = 20.0, 25.0, or 50.0 works fine.
+  Creates HTML with `<video>` tags containing embedded H264-encoded bytestrings.
+  If `codec` is set to 'gif', we instead use `<img>` tags containing embedded
+  GIF-encoded bytestrings.  Note that the resulting GIF animations skip frames
+  when the `fps` period is not a multiple of 10 ms units (GIF frame delay
+  units).  Encoding at `fps` = 20.0, 25.0, or 50.0 works fine.
 
-  If show_save.dir is not None, saves each video to a file based on its title.
+  If ```show_save.dir``` is not None, saves each titled video to a file based
+  on the title.
 
   Args:
-    videos: Iterable of videos, or dictionary of {title: video}.  Each video
+    videos: Iterable of videos, or dictionary of `{title: video}`.  Each video
       must be an iterable of images.
     titles: Optional sequence of strings shown above the corresponding videos.
     width: Optional, overrides displayed width (in pixels).
     height: Optional, overrides displayed height (in pixels).
     downsample: If True, each video whose width or height is greater than the
-      specified 'height' or 'width' is resampled to the display resolution.
+      specified `height` or `width` is resampled to the display resolution. This
+      improves antialiasing and reduces the size of the notebook.
     columns: Optional, maximum number of videos per row.
-    fps: Frames-per-second frame rate (default is 60.0 except 25.0 for gif).
+    fps: Frames-per-second frame rate (default is 60.0 except 25.0 for GIF).
     bps: Bits-per-second bitrate (default None).
     qp: Quantization parameter for video compression quality (default None).
     codec: Compression algorithm; must be either 'h264' or 'gif'.
-    **kwargs: Additional parameters (border, loop, autoplay) for
-      html_from_compressed_video().
+    **kwargs: Additional parameters (`border`, `loop`, `autoplay`) for
+      `html_from_compressed_video`.
   """
   if isinstance(videos, collections.abc.Mapping):
     if titles is not None:
