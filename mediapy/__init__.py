@@ -16,8 +16,7 @@
 #
 """`mediapy`: Read/write/show images and videos in an IPython/Jupyter notebook.
 
-See the [**online
-documentation**](https://github.com/google/mediapy/blob/main/html/mediapy/index.html).
+See the [**online documentation**](https://google.github.io/mediapy/).
 
 See the examples in the notebook
 [mediapy_examples.ipynb](https://github.com/google/mediapy/blob/main/mediapy_examples.ipynb).

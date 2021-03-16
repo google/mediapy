@@ -2,8 +2,7 @@
 
 ## Documentation
 
-See the [HTML
-docs](https://github.com/google/mediapy/blob/main/html/mediapy/index.html).
+See the [online documentation](https://google.github.io/mediapy/).
 
 ## Examples:
 
