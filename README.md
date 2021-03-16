@@ -1,12 +1,12 @@
 # Read/write/show images and videos in an IPython/Jupyter notebook.
 
-## Documentation
-
-See the [online documentation](https://google.github.io/mediapy/).
+[**[GitHub source]**](https://github.com/google/mediapy)&nbsp;&nbsp;
+[**[API docs]**](https://google.github.io/mediapy/)&nbsp;&nbsp;
+[**[PyPI package]**](https://pypi.org/project/mediapy/)
 
 ## Examples:
 
-See the notebook: &nbsp;
+See the notebook &nbsp;
 [`mediapy_examples.ipynb`](https://github.com/google/mediapy/blob/main/mediapy_examples.ipynb)
 &nbsp; &nbsp;
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/google/mediapy/blob/main/mediapy_examples.ipynb)
@@ -20,7 +20,7 @@ launched from GitHub with a single click.  Instead, one must:
 - Create a Terminal (console).
 - Within the terminal, enter "git clone https://github.com/google/mediapy.git".
 - Navigate to Files -> mediapy.
-- Open the the *.ipynb notebook.
+- Open the *.ipynb notebook.
 
 Kaggle: The notebook also runs correctly on https://www.kaggle.com/ although
 "pip install -q mediapy" requires first changing Settings -> Internet -> Enable,

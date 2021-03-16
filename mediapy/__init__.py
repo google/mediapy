@@ -16,12 +16,13 @@
 #
 """`mediapy`: Read/write/show images and videos in an IPython/Jupyter notebook.
 
-See the [**online documentation**](https://google.github.io/mediapy/).
+[**[GitHub source]**](https://github.com/google/mediapy) &nbsp;
+[**[API docs]**](https://google.github.io/mediapy/) &nbsp;
+[**[PyPI package]**](https://pypi.org/project/mediapy/)
 
-See the examples in the notebook
-[mediapy_examples.ipynb](https://github.com/google/mediapy/blob/main/mediapy_examples.ipynb).
-
-Better yet, [**open the notebook in
+See the [example
+notebook](https://github.com/google/mediapy/blob/main/mediapy_examples.ipynb),
+or better yet, [**open it in
 Colab**](https://colab.research.google.com/github/google/mediapy/blob/main/mediapy_examples.ipynb).
 
 ## Image examples
@@ -175,10 +176,10 @@ def _chunked(iterable: Iterable[_T],
   return iter(functools.partial(take, n, iter(iterable)), ())
 
 
-def peek_first(iterator: Iterable[_T]) -> Tuple[_T, Iterable[_T]]:
+def _peek_first(iterator: Iterable[_T]) -> Tuple[_T, Iterable[_T]]:
   """Given an iterator, returns first element and re-initialized iterator.
 
-  >>> first_image, images = peek_first(moving_circle())
+  >>> first_image, images = _peek_first(moving_circle())
 
   Args:
     iterator: An input iterator or iterable.
@@ -202,7 +203,7 @@ def _check_2d_shape(shape: Tuple[int, int]) -> None:
     raise ValueError(f'Shape {shape} contains non-integers.')
 
 
-def run(args: Union[str, Sequence[str]]) -> None:
+def _run(args: Union[str, Sequence[str]]) -> None:
   """Executes command, printing output from stdout and stderr.
 
   Args:
@@ -276,10 +277,12 @@ def to_type(a: Any, dtype: Any) -> np.ndarray:
   A "media array" is one in which the dtype is either a floating-point type
   (np.float32 or np.float64) or an unsigned integer type.  The array values are
   assumed to lie in the range [0.0, 1.0] for floating-point values, and in the
-  full range for unsigned integers, e.g. [0, 255] for np.uint8.  Conversion
-  between integers and floats maps uint(0) to 0.0 and uint(MAX) to 1.0.  The
-  input array may also be of type bool, whereby True maps to uint(MAX) or 1.0.
-  The values are scaled and clamped as appropriate during type conversions.
+  full range for unsigned integers, e.g. [0, 255] for np.uint8.
+
+  Conversion between integers and floats maps uint(0) to 0.0 and uint(MAX) to
+  1.0.  The input array may also be of type bool, whereby True maps to
+  uint(MAX) or 1.0.  The values are scaled and clamped as appropriate during
+  type conversions.
 
   Args:
     a: Input array-like object (of type floating-point, unsigned int, or bool).
@@ -572,7 +575,7 @@ def read_contents(path_or_url: _StrOrPath) -> bytes:
 
 
 @contextlib.contextmanager
-def read_via_local_file(path_or_url: _StrOrPath) -> Generator[str, None, None]:
+def _read_via_local_file(path_or_url: _StrOrPath) -> Generator[str, None, None]:
   """Context to copy a remote file locally to read from it.
 
   Args:
@@ -592,7 +595,7 @@ def read_via_local_file(path_or_url: _StrOrPath) -> Generator[str, None, None]:
 
 
 @contextlib.contextmanager
-def write_via_local_file(path: _StrOrPath) -> Generator[str, None, None]:
+def _write_via_local_file(path: _StrOrPath) -> Generator[str, None, None]:
   """Context to write a temporary local file and subsequently copy it remotely.
 
   Args:
@@ -689,7 +692,7 @@ def to_rgb(
       minimum finite value of `array`.
     vmax: Explicit max value for remapping; if None, it is obtained as the
       maximum finite value of `array`.
-    cmap: A pyplot color map or callable, to map from 1D value to 3D or 4D
+    cmap: A `pyplot` color map or callable, to map from 1D value to 3D or 4D
       color.
 
   Returns:
@@ -723,7 +726,7 @@ def compress_image(image: np.ndarray,
   """Returns a buffer containing a compressed image.
 
   Args:
-    image: Array in a format supported by PIL, e.g. np.uint8 or np.uint16.
+    image: Array in a format supported by `PIL`, e.g. np.uint8 or np.uint16.
     fmt: Desired compression encoding, e.g. 'png'.
     **kwargs: Options for `PIL.save()`, e.g. `optimize=True` for greater
       compression.
@@ -821,7 +824,7 @@ def show_images(
 ) -> None:
   """Displays a row of images in the IPython/Jupyter notebook.
 
-  If ```show_save.dir``` is not None, saves each titled image to a file based
+  If `show_save`.`dir` is not None, saves each titled image to a file based
   on the title.
 
   >>> image1, image2 = np.random.rand(64, 64, 3), color_ramp((64, 64))
@@ -841,8 +844,8 @@ def show_images(
     columns: Optional, maximum number of images per row.
     vmin: For single-channel image, explicit min value for display.
     vmax: For single-channel image, explicit max value for display.
-    cmap: For single-channel image, pyplot color map or callable to map 1D to 3D
-      color.
+    cmap: For single-channel image, `pyplot` color map or callable to map 1D to
+      3D color.
     border: If `bool`, whether to place a black boundary around the image, or if
       `str`, the boundary CSS style.
   """
@@ -1056,7 +1059,6 @@ class VideoReader(VideoIO, ContextManager[Any]):
                *,
                output_format: str = 'rgb',
                dtype: Any = np.uint8):
-    """Initializes video reading from the specified path or url."""
     if output_format not in {'rgb', 'yuv', 'gray'}:
       raise ValueError(
           f'Output format {output_format} is not rgb, yuv, or gray.')
@@ -1072,7 +1074,7 @@ class VideoReader(VideoIO, ContextManager[Any]):
   def __enter__(self) -> 'VideoReader':
     ffmpeg_path = _get_ffmpeg_path()
     try:
-      self._read_via_local_file = read_via_local_file(self.path_or_url)
+      self._read_via_local_file = _read_via_local_file(self.path_or_url)
       tmp_name = self._read_via_local_file.__enter__()
 
       self.metadata = _get_video_metadata(tmp_name)
@@ -1126,7 +1128,7 @@ class VideoReader(VideoIO, ContextManager[Any]):
       yield image
 
   def close(self) -> None:
-    """Terminates the piped subprocess reader."""
+    """Terminates video reader.  (Called automatically at end of context.)"""
     if self._popen:
       self._popen.__exit__(None, None, None)
       self._popen = None
@@ -1194,7 +1196,6 @@ class VideoWriter(VideoIO, ContextManager[Any]):
                input_format: str = 'rgb',
                dtype: Any = np.uint8,
                encoded_format: Optional[str] = None) -> None:
-    """Initializes video writing to the specified path."""
     _check_2d_shape(shape)
     if fps is None:
       fps = 25.0 if codec == 'gif' else 60.0
@@ -1258,7 +1259,7 @@ class VideoWriter(VideoIO, ContextManager[Any]):
     ffmpeg_path = _get_ffmpeg_path()
     input_pix_fmt = self._get_pix_fmt(self.dtype, self.input_format)
     try:
-      self._write_via_local_file = write_via_local_file(self.path)
+      self._write_via_local_file = _write_via_local_file(self.path)
       tmp_name = self._write_via_local_file.__enter__()
 
       # Writing to stdout using ('-f', 'mp4', '-') would require
@@ -1322,7 +1323,7 @@ class VideoWriter(VideoIO, ContextManager[Any]):
       raise RuntimeError(f"Error writing '{self.path}': {s}")
 
   def close(self) -> None:
-    """Finishes writing the video."""
+    """Finishes writing the video.  (Called automatically at end of context.)"""
     if self._popen:
       assert self._proc and self._proc.stdin and self._proc.stderr
       self._proc.stdin.close()
@@ -1370,7 +1371,7 @@ def write_video(path: _StrOrPath, images: Iterable[np.ndarray],
       arrays.
     **kwargs: Additional parameters for `VideoWriter`.
   """
-  first_image, images = peek_first(images)
+  first_image, images = _peek_first(images)
   shape = first_image.shape[:2]
   dtype = first_image.dtype
   if dtype == np.bool:
@@ -1498,7 +1499,7 @@ def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
   when the `fps` period is not a multiple of 10 ms units (GIF frame delay
   units).  Encoding at `fps` = 20.0, 25.0, or 50.0 works fine.
 
-  If ```show_save.dir``` is not None, saves each titled video to a file based
+  If `show_save`.`dir` is not None, saves each titled video to a file based
   on the title.
 
   Args:
@@ -1534,7 +1535,7 @@ def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
 
   html_strings = []
   for video, title in zip(list_videos, list_titles):
-    first_image, video = peek_first(video)
+    first_image, video = _peek_first(video)
     w, h = _get_width_height(width, height, first_image.shape[:2])
     if downsample and (w < first_image.shape[1] or h < first_image.shape[0]):
       # Not resize_video() because each image may have different depth and type.

@@ -85,29 +85,29 @@ class MediapyTest(parameterized.TestCase):
 
   def test_peek_first_on_generator(self):
     generator = range(1, 5)
-    first, generator = media.peek_first(generator)
+    first, generator = media._peek_first(generator)
     self.assertEqual(first, 1)
     self.assert_all_equal(tuple(generator), [1, 2, 3, 4])
 
   def test_peek_first_on_container(self):
     container = [1, 2, 3, 4]
-    first, container = media.peek_first(container)
+    first, container = media._peek_first(container)
     self.assertEqual(first, 1)
     self.assert_all_equal(tuple(container), [1, 2, 3, 4])
 
   def test_run_string(self):
     with mock.patch('sys.stdout', io.StringIO()) as mock_stdout:
-      media.run('echo "$((17 + 22))"')
+      media._run('echo "$((17 + 22))"')
       self.assertEqual(mock_stdout.getvalue(), '39\n')
     with mock.patch('sys.stdout', io.StringIO()) as mock_stdout:
-      media.run('/bin/bash -c "echo $((17 + 22))"')
+      media._run('/bin/bash -c "echo $((17 + 22))"')
       self.assertEqual(mock_stdout.getvalue(), '39\n')
     with self.assertRaisesRegex(RuntimeError, 'failed with code 3'):
-      media.run('exit 3')
+      media._run('exit 3')
 
   def test_run_args_sequence(self):
     with mock.patch('sys.stdout', io.StringIO()) as mock_stdout:
-      media.run(['/bin/bash', '-c', 'echo $((17 + 22))'])
+      media._run(['/bin/bash', '-c', 'echo $((17 + 22))'])
       self.assertEqual(mock_stdout.getvalue(), '39\n')
 
   def test_to_type(self):
@@ -330,13 +330,13 @@ class MediapyTest(parameterized.TestCase):
       filename = os.path.join(directory_name, 'file')
       with open(filename, 'w') as f:
         f.write('text')
-      with media.read_via_local_file(filename) as local_filename:
+      with media._read_via_local_file(filename) as local_filename:
         self.assertEqual(local_filename, filename)
 
   def test_write_via_local_file_on_local_file(self):
     with tempfile.TemporaryDirectory() as directory_name:
       filename = os.path.join(directory_name, 'file')
-      with media.write_via_local_file(filename) as local_filename:
+      with media._write_via_local_file(filename) as local_filename:
         self.assertEqual(local_filename, filename)
 
   @parameterized.parameters('uint8', 'uint16')
@@ -522,7 +522,10 @@ class MediapyTest(parameterized.TestCase):
 
       with media.VideoReader(filename1) as reader:
         with media.VideoWriter(
-            filename2, reader.shape, fps=reader.fps, bps=reader.bps,
+            filename2,
+            reader.shape,
+            fps=reader.fps,
+            bps=reader.bps,
             encoded_format='yuv420p') as writer:
           for image in reader:
             writer.add_image(image)
