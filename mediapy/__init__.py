@@ -131,20 +131,22 @@ _IPYTHON_HTML_SIZE_LIMIT = 20_000_000
 _T = TypeVar('_T')
 
 # https://github.com/python/mypy/issues/5667
-_Path = Union['os.PathLike[str]']
-_StrOrPath = Union[str, _Path]
+if typing.TYPE_CHECKING:
+  _Path = Union[str, 'os.PathLike[str]']
+else:
+  _Path = Union[str, os.PathLike]
 
-_ffmpeg_name_or_path: _StrOrPath = 'ffmpeg'
+_ffmpeg_name_or_path: _Path = 'ffmpeg'
 
 ## Miscellaneous.
 
 
-def _open(path: _StrOrPath, *args: Any, **kwargs: Any) -> ContextManager[Any]:
+def _open(path: _Path, *args: Any, **kwargs: Any) -> ContextManager[Any]:
   """Opens the file; this is a hook for the built-in open()."""
   return open(path, *args, **kwargs)
 
 
-def _path_is_local(path: _StrOrPath) -> bool:
+def _path_is_local(path: _Path) -> bool:
   """Returns True if the path is in the filesystem accessible by 'ffmpeg'."""
   del path
   return True
@@ -225,7 +227,7 @@ def _run(args: Union[str, Sequence[str]]) -> None:
         f"Command '{proc.args}' failed with code {proc.returncode}.")
 
 
-def set_ffmpeg(name_or_path: _StrOrPath):
+def set_ffmpeg(name_or_path: _Path) -> None:
   """Specifies the name or path for the `ffmpeg` external program.
 
   The `ffmpeg` program is required for compressing and decompressing video.
@@ -569,12 +571,12 @@ def resize_video(video: Iterable[np.ndarray], shape: Tuple[int,
 ## General I/O.
 
 
-def _is_url(path_or_url: _StrOrPath) -> bool:
+def _is_url(path_or_url: _Path) -> bool:
   return isinstance(path_or_url, str) and path_or_url.startswith(
       ('http://', 'https://', 'file://'))
 
 
-def read_contents(path_or_url: _StrOrPath) -> bytes:
+def read_contents(path_or_url: _Path) -> bytes:
   """Returns the contents of the file specified by either a path or URL."""
   data: bytes
   if _is_url(path_or_url):
@@ -588,7 +590,7 @@ def read_contents(path_or_url: _StrOrPath) -> bytes:
 
 
 @contextlib.contextmanager
-def _read_via_local_file(path_or_url: _StrOrPath) -> Generator[str, None, None]:
+def _read_via_local_file(path_or_url: _Path) -> Generator[str, None, None]:
   """Context to copy a remote file locally to read from it.
 
   Args:
@@ -608,7 +610,7 @@ def _read_via_local_file(path_or_url: _StrOrPath) -> Generator[str, None, None]:
 
 
 @contextlib.contextmanager
-def _write_via_local_file(path: _StrOrPath) -> Generator[str, None, None]:
+def _write_via_local_file(path: _Path) -> Generator[str, None, None]:
   """Context to write a temporary local file and subsequently copy it remotely.
 
   Args:
@@ -630,10 +632,10 @@ def _write_via_local_file(path: _StrOrPath) -> Generator[str, None, None]:
 
 class _ShowSave:
   """Saves outputs from `show_image` and `show_video` into files."""
-  dir: Optional[_StrOrPath] = None
+  dir: Optional[_Path] = None
 
   @contextlib.contextmanager
-  def to_dir(self, path: _StrOrPath) -> Generator[None, None, None]:
+  def to_dir(self, path: _Path) -> Generator[None, None, None]:
     """Temporarily sets output directory for show_image() and show_video()."""
     previous_dir = self.dir
     try:
@@ -664,14 +666,14 @@ Attributes:
 ## Image I/O.
 
 
-def read_image(path_or_url: _StrOrPath, *, dtype: Any = np.uint8) -> np.ndarray:
+def read_image(path_or_url: _Path, *, dtype: Any = np.uint8) -> np.ndarray:
   """Returns an image read from a file path or URL."""
   dtype = np.dtype(dtype)
   data = read_contents(path_or_url)
   return decompress_image(data, dtype)
 
 
-def write_image(path: _StrOrPath, image: np.ndarray, **kwargs: Any) -> None:
+def write_image(path: _Path, image: np.ndarray, **kwargs: Any) -> None:
   """Writes an image to a file.
 
   Encoding is performed using `PIL`, which supports `uint8` images with 1, 3,
@@ -971,7 +973,7 @@ class VideoMetadata(typing.NamedTuple):
   bps: Optional[int]
 
 
-def _get_video_metadata(path: _StrOrPath) -> VideoMetadata:
+def _get_video_metadata(path: _Path) -> VideoMetadata:
   """Returns attributes of video stored in the specified local file."""
   if not pathlib.Path(path).is_file():
     raise RuntimeError(f"Video file '{path}' is not found.")
@@ -1061,7 +1063,7 @@ class VideoReader(_VideoIO, ContextManager[Any]):
     bps: The estimated bitrate of the video stream in bits per second, retrieved
       from the video header.
   """
-  path_or_url: _StrOrPath
+  path_or_url: _Path
   output_format: str
   dtype: Any
   metadata: VideoMetadata
@@ -1072,7 +1074,7 @@ class VideoReader(_VideoIO, ContextManager[Any]):
   _num_bytes_per_image: int
 
   def __init__(self,
-               path_or_url: _StrOrPath,
+               path_or_url: _Path,
                *,
                output_format: str = 'rgb',
                dtype: Any = np.uint8):
@@ -1201,7 +1203,7 @@ class VideoWriter(_VideoIO, ContextManager[Any]):
   """
 
   def __init__(self,
-               path: _StrOrPath,
+               path: _Path,
                shape: Tuple[int, int],
                *,
                fps: Optional[float] = None,
@@ -1355,7 +1357,7 @@ class VideoWriter(_VideoIO, ContextManager[Any]):
       self._write_via_local_file = None
 
 
-def read_video(path_or_url: _StrOrPath, **kwargs: Any) -> np.ndarray:
+def read_video(path_or_url: _Path, **kwargs: Any) -> np.ndarray:
   """Returns a 4D array containing all images from a compressed video file.
 
   >>> video = read_video('/tmp/river.mp4')
@@ -1374,7 +1376,7 @@ def read_video(path_or_url: _StrOrPath, **kwargs: Any) -> np.ndarray:
     return np.array(tuple(reader))
 
 
-def write_video(path: _StrOrPath, images: Iterable[np.ndarray],
+def write_video(path: _Path, images: Iterable[np.ndarray],
                 **kwargs: Any) -> None:
   """Writes images to a compressed video file.
 
