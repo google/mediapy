@@ -134,9 +134,7 @@ _T = TypeVar('_T')
 _Path = Union['os.PathLike[str]']
 _StrOrPath = Union[str, _Path]
 
-# Name or path for ffmpeg program required for reading/writing of video.  It may
-# be an absolute path or a filename within a directory of os.environ['PATH'].
-FFMPEG_NAME: str = 'ffmpeg'
+_ffmpeg_name_or_path: _StrOrPath = 'ffmpeg'
 
 ## Miscellaneous.
 
@@ -154,7 +152,7 @@ def _path_is_local(path: _StrOrPath) -> bool:
 
 def _search_for_ffmpeg_path() -> Optional[str]:
   """Returns a path to the ffmpeg program, or None if not found."""
-  filename = shutil.which(FFMPEG_NAME)
+  filename = shutil.which(_ffmpeg_name_or_path)
   if filename:
     return filename
   return None
@@ -225,6 +223,21 @@ def _run(args: Union[str, Sequence[str]]) -> None:
   if proc.returncode:
     raise RuntimeError(
         f"Command '{proc.args}' failed with code {proc.returncode}.")
+
+
+def set_ffmpeg(name_or_path: _StrOrPath):
+  """Specifies the name or path for the `ffmpeg` external program.
+
+  The `ffmpeg` program is required for compressing and decompressing video.
+  (It is used in `read_video`, `write_video`, `show_video`, `show_videos`,
+  etc.)
+
+  Args:
+    name_or_path: Either a filename within a directory of `os.environ['PATH']`
+      or a filepath.  The default setting is 'ffmpeg'.
+  """
+  global _ffmpeg_name_or_path
+  _ffmpeg_name_or_path = name_or_path
 
 
 def set_output_height(num_pixels: int) -> None:
@@ -633,7 +646,7 @@ class _ShowSave:
 show_save = _ShowSave()
 """Functionality to save all titled output from `show_*()` calls into files.
 
-If `dir` attribute of `show_save` is not None, all titled images and videos
+If the `dir` attribute of `show_save` is not None, all titled images and videos
 displayed by `show_image`, `show_images`, `show_video`, and `show_videos` are
 also saved as files within the specified directory.
 
@@ -927,12 +940,16 @@ def _get_ffmpeg_path() -> str:
   path = _search_for_ffmpeg_path()
   if not path:
     raise RuntimeError(
-        f"Program '{FFMPEG_NAME}' is not found; use 'apt-get install ffmpeg'.")
+        f"Program '{_ffmpeg_name_or_path}' is not found;"
+        " perhaps install ffmpeg using 'apt-get install ffmpeg'.")
   return path
 
 
 def video_is_available() -> bool:
-  """Returns True if the program `FFMPEG_NAME` is found."""
+  """Returns True if the program `ffmpeg` is found.
+
+  See also `set_ffmpeg`.
+  """
   return _search_for_ffmpeg_path() is not None
 
 
@@ -996,7 +1013,7 @@ def _get_video_metadata(path: _StrOrPath) -> VideoMetadata:
   return VideoMetadata(num_images, shape, fps, bps)
 
 
-class VideoIO:
+class _VideoIO:
   """Base class for `VideoReader` and `VideoWriter`."""
 
   def _get_pix_fmt(self, dtype: Any, image_format: str) -> str:
@@ -1016,7 +1033,7 @@ class VideoIO:
     }[dtype.type][image_format]
 
 
-class VideoReader(VideoIO, ContextManager[Any]):
+class VideoReader(_VideoIO, ContextManager[Any]):
   """Context to read a compressed video as an iterable over its images.
 
   >>> with VideoReader('/tmp/river.mp4') as reader:
@@ -1138,7 +1155,7 @@ class VideoReader(VideoIO, ContextManager[Any]):
       self._read_via_local_file = None
 
 
-class VideoWriter(VideoIO, ContextManager[Any]):
+class VideoWriter(_VideoIO, ContextManager[Any]):
   """Context to write a compressed video.
 
   >>> shape = (480, 640)

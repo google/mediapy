@@ -20,7 +20,7 @@ with open('README.md') as f:
 
 setuptools.setup(
     name='mediapy',
-    version='0.1.0',
+    version='0.1.1',
     author='Google LLC',
     author_email='mediapy-owners@google.com',
     description='Read/write/show images and videos in an IPython notebook',
