@@ -538,7 +538,7 @@ class MediapyTest(parameterized.TestCase):
     num_images = 4
     fps = 60
     bps = 40_000_000
-    horizontal_gray_ramp = media.to_uint(
+    horizontal_gray_ramp = media.to_type(
         np.indices(shape)[1] / shape[1], np.uint16)
     video = np.broadcast_to(horizontal_gray_ramp, (num_images, *shape))
     with tempfile.TemporaryDirectory() as directory_name:

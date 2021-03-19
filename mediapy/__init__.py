@@ -97,6 +97,9 @@ Darken a video frame-by-frame:
 ```
 """
 
+__version__ = '0.1.2'
+__version_info__ = tuple(int(num) for num in __version__.split('.'))
+
 import base64
 import collections.abc
 import contextlib
@@ -346,6 +349,9 @@ def to_type(a: Any, dtype: Any) -> np.ndarray:
 def to_float01(a: Any, dtype: Any = np.float32) -> np.ndarray:
   """If array has unsigned integers, rescales them to the range [0.0, 1.0].
 
+  Scaling is such that uint(0) maps to 0.0 and uint(MAX) maps to 1.0.  See
+  `to_type`.
+
   Args:
     a: Input array.
     dtype: Desired floating-point type if rescaling occurs.
@@ -353,8 +359,6 @@ def to_float01(a: Any, dtype: Any = np.float32) -> np.ndarray:
   Returns:
     A new array of dtype values in the range [0.0, 1.0] if the input array `a`
     contains unsigned integers; otherwise, array `a` is returned unchanged.
-
-  Scaling is such that uint(0) maps to 0.0 and uint(MAX) maps to 1.0.
   """
   dtype = np.dtype(dtype)
   if not issubclass(dtype.type, np.floating):
@@ -362,14 +366,6 @@ def to_float01(a: Any, dtype: Any = np.float32) -> np.ndarray:
   a = np.asarray(a)
   if issubclass(a.dtype.type, np.floating):
     return a
-  return to_type(a, dtype)
-
-
-def to_uint(a: Any, dtype: Any) -> np.ndarray:
-  """Returns array converted to unsigned-integer dtype; see `to_type`."""
-  dtype = np.dtype(dtype)
-  if not issubclass(dtype.type, np.unsignedinteger):
-    raise ValueError(f'Type {dtype} is not an unsigned integer.')
   return to_type(a, dtype)
 
 
@@ -427,7 +423,7 @@ def moving_circle(shape: Tuple[int, int] = (256, 256),
     inside = np.sum((yx - center)**2, axis=-1) < radius_squared
     white_circle_color = (1.0, 1.0, 1.0)
     if issubclass(dtype.type, np.unsignedinteger):
-      white_circle_color = to_uint([white_circle_color], dtype)[0]
+      white_circle_color = to_type([white_circle_color], dtype)[0]
     image[inside] = white_circle_color
     return image
 
@@ -854,7 +850,7 @@ def show_images(
     width: Optional, overrides displayed width (in pixels).
     height: Optional, overrides displayed height (in pixels).
     downsample: If True, each image whose width or height is greater than the
-      specified `height` or `width` is resampled to the display resolution. This
+      specified `width` or `height` is resampled to the display resolution. This
       improves antialiasing and reduces the size of the notebook.
     columns: Optional, maximum number of images per row.
     vmin: For single-channel image, explicit min value for display.
@@ -1317,7 +1313,7 @@ class VideoWriter(_VideoIO, ContextManager[Any]):
     """
     assert self._proc, 'Error: writing to an already closed context.'
     if issubclass(image.dtype.type, (np.floating, np.bool_)):
-      image = to_uint(image, self.dtype)
+      image = to_type(image, self.dtype)
     if image.dtype != self.dtype:
       raise ValueError(f'Image type {image.dtype} != {self.dtype}.')
     if self.input_format == 'gray':
@@ -1465,7 +1461,7 @@ def html_from_compressed_video(data: bytes,
              f' style="{border}object-fit:cover;"'
              f"{' loop' if loop else ''}{' autoplay' if autoplay else ''}")
   s = f"""<video {options}>
-      <source src="data:video/x-m4v;base64,{b64}" type="video/mp4"/>
+      <source src="data:video/mp4;base64,{b64}" type="video/mp4"/>
       This browser does not support the video tag.
       </video>"""
   if title:
@@ -1528,7 +1524,7 @@ def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
     width: Optional, overrides displayed width (in pixels).
     height: Optional, overrides displayed height (in pixels).
     downsample: If True, each video whose width or height is greater than the
-      specified `height` or `width` is resampled to the display resolution. This
+      specified `width` or `height` is resampled to the display resolution. This
       improves antialiasing and reduces the size of the notebook.
     columns: Optional, maximum number of videos per row.
     fps: Frames-per-second frame rate (default is 60.0 except 25.0 for GIF).

@@ -13,22 +13,33 @@
 # limitations under the License.
 """Install mediapy package."""
 
+import pathlib
 import setuptools
 
-with open('README.md') as f:
-  long_description = f.read()
+
+def get_long_description():
+  return pathlib.Path('README.md').read_text()
+
+
+def get_version(rel_path):
+  path = pathlib.Path(__file__).resolve().parent / rel_path
+  for line in path.read_text().splitlines():
+    if line.startswith("__version__ = '"):
+      _, version, _ = line.split("'")
+      return version
+  raise RuntimeError(f'Unable to find version string in {path}.')
+
 
 setuptools.setup(
     name='mediapy',
-    version='0.1.1',
+    version=get_version('mediapy/__init__.py'),
     author='Google LLC',
     author_email='mediapy-owners@google.com',
     description='Read/write/show images and videos in an IPython notebook',
-    long_description=long_description,
+    long_description=get_long_description(),
     long_description_content_type='text/markdown',
     url='https://github.com/google/mediapy',
     license='Apache-2.0',
-    license_file='LICENSE',
     packages=['mediapy'],
     classifiers=[
         'Programming Language :: Python :: 3',
