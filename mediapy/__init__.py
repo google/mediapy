@@ -18,7 +18,9 @@
 
 [**[GitHub source]**](https://github.com/google/mediapy) &nbsp;
 [**[API docs]**](https://google.github.io/mediapy/) &nbsp;
-[**[PyPI package]**](https://pypi.org/project/mediapy/)
+[**[PyPI package]**](https://pypi.org/project/mediapy/) &nbsp;
+[**[Colab
+example]**](https://colab.research.google.com/github/google/mediapy/blob/main/mediapy_examples.ipynb)
 
 See the [example
 notebook](https://github.com/google/mediapy/blob/main/mediapy_examples.ipynb),
@@ -97,7 +99,7 @@ Darken a video frame-by-frame:
 ```
 """
 
-__version__ = '0.1.2'
+__version__ = '0.1.3'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
@@ -1262,9 +1264,12 @@ class VideoWriter(_VideoIO, ContextManager[Any]):
     if self.codec == 'gif':
       if self.path.suffix != '.gif':
         raise ValueError(f"File '{self.path}' does not have a .gif suffix.")
-      self.encoded_format = 'rgb24'
+      self.encoded_format = 'pal8'
       self._bitrate_args = []
       video_filter = 'split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse'
+      # Less common (and likely less useful) is a per-frame color palette:
+      # video_filter = ('split[s0][s1];[s0]palettegen=stats_mode=single[p];'
+      #                 '[s1][p]paletteuse=new=1')
       self.ffmpeg_args = ['-vf', video_filter, '-f', 'gif'] + self.ffmpeg_args
     self._write_via_local_file: Any = None
     self._popen: Optional['subprocess.Popen[bytes]'] = None

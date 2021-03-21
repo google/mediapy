@@ -2,7 +2,8 @@
 
 [**[GitHub source]**](https://github.com/google/mediapy) &nbsp;
 [**[API docs]**](https://google.github.io/mediapy/) &nbsp;
-[**[PyPI package]**](https://pypi.org/project/mediapy/)
+[**[PyPI package]**](https://pypi.org/project/mediapy/) &nbsp;
+[**[Colab example]**](https://colab.research.google.com/github/google/mediapy/blob/main/mediapy_examples.ipynb)
 
 ## Examples:
 
