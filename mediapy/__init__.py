@@ -62,7 +62,7 @@ Show titled images side-by-side:
 Display a video (an iterable of images, e.g., a 3D or 4D array):
 ```python
   video = moving_circle((100, 100), num_images=10)
-  show_video(video)
+  show_video(video, fps=10)
 ```
 
 Show the video frames side-by-side:
@@ -78,7 +78,7 @@ Show the frames with their indices:
 Read and display a video (either local or from the Web):
 ```python
   VIDEO = 'https://github.com/hhoppe/data/raw/main/video.mp4'
-  show_video(read_video(VIDEO))
+  show_video(read_video(VIDEO), fps=60)
 ```
 
 Create and display a looping two-frame GIF video:
@@ -95,10 +95,10 @@ Darken a video frame-by-frame:
     with VideoWriter(output_path, shape=r.shape, fps=r.fps, bps=r.bps) as w:
       for image in r:
         w.add_image(darken_image(image))
-  show_video(read_video(output_path), height=90)
 ```
 """
 
+__docformat__ = 'google'
 __version__ = '0.1.3'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
@@ -684,6 +684,7 @@ def write_image(path: _Path, image: np.ndarray, **kwargs: Any) -> None:
       Otherwise it must be np.uint8 or np.uint16.
     **kwargs: Additional parameters for `PIL.Image.save()`.
   """
+  image = _as_valid_media_array(image)
   if issubclass(image.dtype.type, np.floating):
     image = to_uint8(image)
   with _open(path, 'wb') as f:
@@ -744,6 +745,7 @@ def compress_image(image: np.ndarray,
     **kwargs: Options for `PIL.save()`, e.g. `optimize=True` for greater
       compression.
   """
+  image = _as_valid_media_array(image)
   with io.BytesIO() as output:
     _pil_image(image).save(output, format=fmt, **kwargs)
     return output.getvalue()
@@ -868,13 +870,10 @@ def show_images(
     list_titles, list_images = list(images.keys()), list(images.values())
   else:
     list_images: List[np.ndarray] = list(images)  # type: ignore
-    if titles is None:
-      list_titles = [None] * len(list_images)
-    else:
-      list_titles = list(titles)
-      if len(list_images) != len(list_titles):
-        raise ValueError('Number of images does not match number of titles'
-                         f' ({len(list_images)} vs {len(list_titles)}).')
+    list_titles = [None] * len(list_images) if titles is None else list(titles)
+    if len(list_images) != len(list_titles):
+      raise ValueError('Number of images does not match number of titles'
+                       f' ({len(list_images)} vs {len(list_titles)}).')
 
   def ensure_mapped_to_rgb(image: Any) -> np.ndarray:
     image = _as_valid_media_array(image)
@@ -1042,6 +1041,9 @@ class VideoReader(_VideoIO, ContextManager[Any]):
   ...   for image in reader:
   ...     print(image.shape)
 
+  >>> with VideoReader('/tmp/river.mp4') as reader:
+  ...   video = np.array(tuple(reader))
+
   Attributes:
     path_or_url: Location of input video.
     output_format: Format of output images (default 'rgb'):
@@ -1162,7 +1164,7 @@ class VideoWriter(_VideoIO, ContextManager[Any]):
   >>> with VideoWriter('/tmp/v.mp4', shape, fps=60) as writer:
   ...   for image in moving_circle(shape, num_images=60):
   ...     writer.add_image(image)
-  >>> show_video(read_video('/tmp/v.mp4'))
+  >>> show_video(read_video('/tmp/v.mp4'), fps=60)
 
 
   Bitrate control may be specified using at most one of: `bps`, `qp`, or `crf`.
@@ -1178,7 +1180,7 @@ class VideoWriter(_VideoIO, ContextManager[Any]):
     shape: 2D spatial dimensions (height, width) of video image frames.  The
       dimensions must be even if 'encoded_format' has subsampled chroma (e.g.,
       'yuv420p' or 'yuv420p10le').
-    fps: Frames-per-second frame rate (default is 60.0 except 25.0 for 'gif').
+    fps: Frames-per-second framerate (default is 60.0 except 25.0 for 'gif').
     codec: Compression algorithm as defined by "ffmpeg -codecs" (e.g., 'h264',
       'hevc', 'vp9', or 'gif').
     bps: Requested average bits-per-second bitrate (default None).
@@ -1363,8 +1365,14 @@ def read_video(path_or_url: _Path, **kwargs: Any) -> np.ndarray:
 
   >>> video = read_video('/tmp/river.mp4')
   >>> show_video(video)
+
   >>> url = 'https://github.com/hhoppe/data/raw/main/video.mp4'
-  >>> show_video(read_video(url))
+  >>> show_video(read_video(url), fps=60)
+
+  To obtain the original framerate, one may use:
+
+  >>> with VideoReader(url) as reader:
+  ...   show_video(reader, fps=reader.fps)
 
   Args:
     path_or_url: Input video file.
@@ -1382,8 +1390,8 @@ def write_video(path: _Path, images: Iterable[np.ndarray],
   """Writes images to a compressed video file.
 
   >>> video = moving_circle((480, 640), num_images=60)
-  >>> write_video('/tmp/v.mp4', video, fps=60.0, qp=18)
-  >>> show_video(read_video('/tmp/v.mp4'))
+  >>> write_video('/tmp/v.mp4', video, fps=60, qp=18)
+  >>> show_video(read_video('/tmp/v.mp4'), fps=60)
 
   Args:
     path: Output video file.
@@ -1485,13 +1493,15 @@ def show_video(images: Iterable[np.ndarray],
   See `show_videos`.
 
   >>> video = read_video('https://github.com/hhoppe/data/raw/main/video.mp4')
-  >>> show_video(video, title='River video', fps=10.0)
+  >>> show_video(video, title='River video', fps=10)
 
-  >>> show_video(moving_circle((80, 80), num_images=10), border=True)
-  >>> show_video(read_video('/tmp/river.mp4'))
+  >>> show_video(moving_circle((80, 80), num_images=10), fps=5, border=True)
+
+  >>> show_video(read_video('/tmp/river.mp4'), fps=60)
 
   Args:
-    images: Iterable of video frames.
+    images: Iterable of video frames (e.g., a 4D array or a list of 2D or 3D
+      arrays).
     title: Optional text shown centered above the video.
     **kwargs: See `show_videos`.
   """
@@ -1500,7 +1510,7 @@ def show_video(images: Iterable[np.ndarray],
 
 def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
                               Mapping[str, Iterable[np.ndarray]]],
-                titles: Optional[Sequence[Optional[str]]] = None,
+                titles: Optional[Iterable[Optional[str]]] = None,
                 *,
                 width: Optional[int] = None,
                 height: Optional[int] = None,
@@ -1525,14 +1535,14 @@ def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
   Args:
     videos: Iterable of videos, or dictionary of `{title: video}`.  Each video
       must be an iterable of images.
-    titles: Optional sequence of strings shown above the corresponding videos.
+    titles: Optional strings shown above the corresponding videos.
     width: Optional, overrides displayed width (in pixels).
     height: Optional, overrides displayed height (in pixels).
     downsample: If True, each video whose width or height is greater than the
       specified `width` or `height` is resampled to the display resolution. This
       improves antialiasing and reduces the size of the notebook.
     columns: Optional, maximum number of videos per row.
-    fps: Frames-per-second frame rate (default is 60.0 except 25.0 for GIF).
+    fps: Frames-per-second framerate (default is 60.0 except 25.0 for GIF).
     bps: Bits-per-second bitrate (default None).
     qp: Quantization parameter for video compression quality (default None).
     codec: Compression algorithm; must be either 'h264' or 'gif'.

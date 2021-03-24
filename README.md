@@ -58,16 +58,20 @@ file.
 ### Videos:
 
 ```python
-    video = media.read_video('https://github.com/hhoppe/data/raw/main/video.mp4')
-    print(video.shape, video.dtype)  # It is a numpy array.
-    media.show_video(video)
+    url = 'https://github.com/hhoppe/data/raw/main/video.mp4'
+    video = media.read_video(url)
+    print(video.shape, video.dtype)  # (It is a numpy array; no framerate.)
+    media.show_video(video, fps=60)  # Display at 60 frames/s.
+
+    with VideoReader(url) as reader:
+      show_video(reader, fps=reader.fps)
 
     media.show_images(video, height=80, columns=4)  # Frames side-by-side.
 
-    video2 = media.moving_circle((128, 128), num_images=10)
-    media.show_video(video2)
+    video = media.moving_circle((128, 128), num_images=10)
+    media.show_video(video, fps=10)
 
-    media.write_video('/tmp/video.mp4', video)
+    media.write_video('/tmp/video.mp4', video, fps=60)
 
     # Darken a video frame-by-frame:
     filename_in = '/tmp/video.mp4'
@@ -79,7 +83,7 @@ file.
           filename_out, shape=r.shape, fps=r.fps, bps=r.bps) as w:
         for image in r:
           w.add_image(darken_image(image))
-    media.show_video(media.read_video(filename_out))
+    media.show_video(media.read_video(filename_out), fps=60)
 ```
 
 ## Setup:
