@@ -99,7 +99,7 @@ Darken a video frame-by-frame:
 """
 
 __docformat__ = 'google'
-__version__ = '0.1.3'
+__version__ = '0.2.0'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
@@ -141,9 +141,15 @@ if typing.TYPE_CHECKING:
 else:
   _Path = Union[str, os.PathLike]
 
-_ffmpeg_name_or_path: _Path = 'ffmpeg'
-
 ## Miscellaneous.
+
+
+class _Config:
+  ffmpeg_name_or_path: _Path = 'ffmpeg'
+  show_save_dir: Optional[_Path] = None
+
+
+_config = _Config()
 
 
 def _open(path: _Path, *args: Any, **kwargs: Any) -> ContextManager[Any]:
@@ -159,7 +165,7 @@ def _path_is_local(path: _Path) -> bool:
 
 def _search_for_ffmpeg_path() -> Optional[str]:
   """Returns a path to the ffmpeg program, or None if not found."""
-  filename = shutil.which(_ffmpeg_name_or_path)
+  filename = shutil.which(_config.ffmpeg_name_or_path)
   if filename:
     return filename
   return None
@@ -243,8 +249,7 @@ def set_ffmpeg(name_or_path: _Path) -> None:
     name_or_path: Either a filename within a directory of `os.environ['PATH']`
       or a filepath.  The default setting is 'ffmpeg'.
   """
-  global _ffmpeg_name_or_path
-  _ffmpeg_name_or_path = name_or_path
+  _config.ffmpeg_name_or_path = name_or_path
 
 
 def set_output_height(num_pixels: int) -> None:
@@ -628,38 +633,35 @@ def _write_via_local_file(path: _Path) -> Generator[str, None, None]:
         f.write(tmp_path.read_bytes())
 
 
-class _ShowSave:
-  """Saves outputs from `show_image` and `show_video` into files."""
-  dir: Optional[_Path] = None
+class set_show_save_dir:  # pylint: disable=invalid-name
+  """Save all titled output from `show_*()` calls into files.
 
-  @contextlib.contextmanager
-  def to_dir(self, path: _Path) -> Generator[None, None, None]:
-    """Temporarily sets output directory for show_image() and show_video()."""
-    previous_dir = self.dir
-    try:
-      self.dir = path
-      yield
-    finally:
-      self.dir = previous_dir
+  If the specified `directory` is not None, all titled images and videos
+  displayed by `show_image`, `show_images`, `show_video`, and `show_videos` are
+  also saved as files within the directory.
 
+  It can be used either to set the state or as a context manager:
 
-show_save = _ShowSave()
-"""Functionality to save all titled output from `show_*()` calls into files.
+  >>> set_show_save_dir('/tmp')
+  >>> show_image(image, title='image1')  # Creates /tmp/image1.png.
+  >>> show_video(video, title='video2')  # Creates /tmp/video2.mp4.
+  >>> set_show_save_dir(None)
 
-If the `dir` attribute of `show_save` is not None, all titled images and videos
-displayed by `show_image`, `show_images`, `show_video`, and `show_videos` are
-also saved as files within the specified directory.
+  >>> with set_show_save_dir('/tmp'):
+  ...   show_image(image, title='image1')  # Creates /tmp/image1.png.
+  ...   show_video(video, title='video2')  # Creates /tmp/video2.mp4.
+  """
 
-The context `to_dir(directory_name)` temporarily assigns the
-`dir` attribute:
+  def __init__(self, directory: Optional[_Path]):
+    self._old_show_save_dir = _config.show_save_dir
+    _config.show_save_dir = directory
 
->>> with show_save.to_dir('/tmp'):
-...   show_image(image, title='image1')  # Creates /tmp/image1.png.
-...   show_video(video, title='video2')  # Creates /tmp/video2.mp4.
+  def __enter__(self) -> None:
+    pass
 
-Attributes:
-  dir: Directory into which to save titled images and videos, or None.
-"""
+  def __exit__(self, *_: Any) -> None:
+    _config.show_save_dir = self._old_show_save_dir
+
 
 ## Image I/O.
 
@@ -839,8 +841,8 @@ def show_images(
 ) -> None:
   """Displays a row of images in the IPython/Jupyter notebook.
 
-  If `show_save`.`dir` is not None, saves each titled image to a file based
-  on the title.
+  If a directory has been specified using `set_show_save_dir`, also saves each
+  titled image to a file in that directory based on its title.
 
   >>> image1, image2 = np.random.rand(64, 64, 3), color_ramp((64, 64))
   >>> show_images([image1, image2])
@@ -869,7 +871,7 @@ def show_images(
       raise ValueError('Cannot have images dictionary and titles parameter.')
     list_titles, list_images = list(images.keys()), list(images.values())
   else:
-    list_images: List[np.ndarray] = list(images)  # type: ignore
+    list_images = list(images)
     list_titles = [None] * len(list_images) if titles is None else list(titles)
     if len(list_images) != len(list_titles):
       raise ValueError('Number of images does not match number of titles'
@@ -900,8 +902,8 @@ def show_images(
   png_datas = [compress_image(to_uint8(image)) for image in list_images]
 
   for title, png_data in zip(list_titles, png_datas):
-    if title and show_save.dir:
-      path = pathlib.Path(show_save.dir) / f'{title}.png'
+    if title and _config.show_save_dir:
+      path = pathlib.Path(_config.show_save_dir) / f'{title}.png'
       with _open(path, mode='wb') as f:
         f.write(png_data)
 
@@ -939,7 +941,7 @@ def _get_ffmpeg_path() -> str:
   path = _search_for_ffmpeg_path()
   if not path:
     raise RuntimeError(
-        f"Program '{_ffmpeg_name_or_path}' is not found;"
+        f"Program '{_config.ffmpeg_name_or_path}' is not found;"
         " perhaps install ffmpeg using 'apt-get install ffmpeg'.")
   return path
 
@@ -1529,8 +1531,8 @@ def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
   when the `fps` period is not a multiple of 10 ms units (GIF frame delay
   units).  Encoding at `fps` = 20.0, 25.0, or 50.0 works fine.
 
-  If `show_save`.`dir` is not None, saves each titled video to a file based
-  on the title.
+  If a directory has been specified using `set_show_save_dir`, also saves each
+  titled video to a file in that directory based on its title.
 
   Args:
     videos: Iterable of videos, or dictionary of `{title: video}`.  Each video
@@ -1555,7 +1557,7 @@ def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
           'Cannot have both a video dictionary and a titles parameter.')
     list_titles, list_videos = list(videos.keys()), list(videos.values())
   else:
-    list_videos: List[Iterable[np.ndarray]] = list(videos)  # type: ignore
+    list_videos = typing.cast(List[Iterable[np.ndarray]], list(videos))
     list_titles = [None] * len(list_videos) if titles is None else list(titles)
     if len(list_videos) != len(list_titles):
       raise ValueError('Number of videos does not match number of titles'
@@ -1571,9 +1573,9 @@ def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
       # Not resize_video() because each image may have different depth and type.
       video = [resize_image(image, (h, w)) for image in video]
     data = compress_video(video, fps=fps, bps=bps, qp=qp, codec=codec)
-    if title and show_save.dir:
+    if title and _config.show_save_dir:
       suffix = _filename_suffix_from_codec(codec)
-      path = pathlib.Path(show_save.dir) / f'{title}{suffix}'
+      path = pathlib.Path(_config.show_save_dir) / f'{title}{suffix}'
       with _open(path, mode='wb') as f:
         f.write(data)
     if codec == 'gif':

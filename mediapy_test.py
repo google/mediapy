@@ -418,14 +418,26 @@ class MediapyTest(parameterized.TestCase):
     self.assertRegex(htmls[0].data, '(?s)<img width=[^<>]*/>')
     self.assertLen(re.findall('(?s)<img', htmls[0].data), 1)
 
-  def test_show_save_image(self):
+  def test_set_show_save_dir_image(self):
+    self.enter_context(mock.patch('IPython.display.display'))
     with tempfile.TemporaryDirectory() as directory_name:
-      with media.show_save.to_dir(directory_name):
-        with mock.patch('IPython.display.display'):
-          media.show_images({'ramp': media.color_ramp((128, 128))})
-      filename = os.path.join(directory_name, 'ramp.png')
-      self.assertTrue(os.path.isfile(filename))
-      self.assertBetween(os.path.getsize(filename), 200, 1000)
+      directory_path = pathlib.Path(directory_name)
+      with media.set_show_save_dir(directory_path):
+        media.show_images({'ramp1': media.color_ramp((128, 128))})
+      path = directory_path / 'ramp1.png'
+      self.assertTrue(path.is_file())
+      self.assertBetween(path.stat().st_size, 200, 1000)
+
+      media.show_images({'ramp2': media.color_ramp((128, 128))})
+      self.assertFalse((directory_path / 'ramp2.png').is_file())
+
+      media.set_show_save_dir(directory_path)
+      media.show_images({'ramp3': media.color_ramp((128, 128))})
+      self.assertTrue((directory_path / 'ramp3.png').is_file())
+
+      media.set_show_save_dir(None)
+      media.show_images({'ramp4': media.color_ramp((128, 128))})
+      self.assertFalse((directory_path / 'ramp4.png').is_file())
 
   def test_show_image_downsampled(self):
     np.random.seed(1)
@@ -608,11 +620,11 @@ class MediapyTest(parameterized.TestCase):
     self.assertIsInstance(htmls[0], IPython.display.HTML)
     self.assertContainsInOrder(['<img', 'src="data:image/gif'], htmls[0].data)
 
-  def test_show_save_video(self):
+  def test_set_show_save_dir_video(self):
     video = media.moving_circle((32, 32), num_images=10)
     with tempfile.TemporaryDirectory() as directory_name:
       directory_path = pathlib.Path(directory_name)
-      with media.show_save.to_dir(directory_path):
+      with media.set_show_save_dir(directory_path):
         with mock.patch('IPython.display.display'):
           media.show_videos({'video0': video, 'video1': video})
       for i in range(2):
