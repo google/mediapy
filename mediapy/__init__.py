@@ -99,7 +99,7 @@ Darken a video frame-by-frame:
 """
 
 __docformat__ = 'google'
-__version__ = '0.2.0'
+__version__ = '0.2.1'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
@@ -826,19 +826,18 @@ def show_image(image: Any,
   show_images([image], [title], **kwargs)
 
 
-def show_images(
-    images: Union[Iterable[np.ndarray], Mapping[str, np.ndarray]],
-    titles: Optional[Iterable[Optional[str]]] = None,
-    *,
-    width: Optional[int] = None,
-    height: Optional[int] = None,
-    downsample: bool = True,
-    columns: Optional[int] = None,
-    vmin: Optional[float] = None,
-    vmax: Optional[float] = None,
-    cmap: Union[str, Callable[[np.ndarray], np.ndarray]] = 'gray',
-    border: Union[bool, str] = False,
-) -> None:
+def show_images(images: Union[Iterable[np.ndarray], Mapping[str, np.ndarray]],
+                titles: Optional[Iterable[Optional[str]]] = None,
+                *,
+                width: Optional[int] = None,
+                height: Optional[int] = None,
+                downsample: bool = True,
+                columns: Optional[int] = None,
+                vmin: Optional[float] = None,
+                vmax: Optional[float] = None,
+                cmap: Union[str, Callable[[np.ndarray], np.ndarray]] = 'gray',
+                border: Union[bool, str] = False,
+                ylabel: str = '') -> None:
   """Displays a row of images in the IPython/Jupyter notebook.
 
   If a directory has been specified using `set_show_save_dir`, also saves each
@@ -865,6 +864,7 @@ def show_images(
       3D color.
     border: If `bool`, whether to place a black boundary around the image, or if
       `str`, the boundary CSS style.
+    ylabel: Text (rotated by 90 degrees) shown on the left of each row.
   """
   if isinstance(images, collections.abc.Mapping):
     if titles is not None:
@@ -918,8 +918,11 @@ def show_images(
     table_strings = []
     for row_html_strings in _chunked(html_strings, columns):
       s = ''.join(f'<td>{e}</td>' for e in row_html_strings)
-      table_strings.append(
-          f'<table style="border-spacing:0;"><tr>{s}</tr></table>')
+      if ylabel:
+        style = 'writing-mode: vertical-lr; transform: rotate(180deg);'
+        s = f'<td><span style="{style}">{ylabel}</span></td>' + s
+      table_strings.append('<table class="show_images"'
+                           f' style="border-spacing:0;"><tr>{s}</tr></table>')
     return ''.join(table_strings)
 
   s = html_from_compressed_images()
@@ -1522,6 +1525,7 @@ def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
                 bps: Optional[int] = None,
                 qp: Optional[int] = None,
                 codec: str = 'h264',
+                ylabel: str = '',
                 **kwargs: Any) -> None:
   """Displays a row of videos in the IPython notebook.
 
@@ -1548,6 +1552,7 @@ def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
     bps: Bits-per-second bitrate (default None).
     qp: Quantization parameter for video compression quality (default None).
     codec: Compression algorithm; must be either 'h264' or 'gif'.
+    ylabel: Text (rotated by 90 degrees) shown on the left of each row.
     **kwargs: Additional parameters (`border`, `loop`, `autoplay`) for
       `html_from_compressed_video`.
   """
@@ -1590,7 +1595,10 @@ def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
   table_strings = []
   for row_html_strings in _chunked(html_strings, columns):
     s = ''.join(f'<td>{e}</td>' for e in row_html_strings)
-    table_strings.append(
-        f'<table style="border-spacing:0;"><tr>{s}</tr></table>')
+    if ylabel:
+      style = 'writing-mode: vertical-lr; transform: rotate(180deg);'
+      s = f'<td><span style="{style}">{ylabel}</span></td>' + s
+    table_strings.append('<table class="show_videos"'
+                         f' style="border-spacing:0;"><tr>{s}</tr></table>')
   s = ''.join(table_strings)
   IPython.display.display(IPython.display.HTML(s))
