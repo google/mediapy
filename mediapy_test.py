@@ -493,6 +493,10 @@ class MediapyTest(parameterized.TestCase):
       filename = os.path.join(directory_name, 'test.mp4')
       media.write_video(filename, video, fps=fps, qp=qp)
       new_video = media.read_video(filename)
+      self.assertEqual(new_video.metadata.num_images, num_images)
+      self.assertEqual(new_video.metadata.shape, shape)
+      self.assertEqual(new_video.metadata.fps, fps)
+      self.assertGreater(new_video.metadata.bps, 1_000)
       self._check_similar(original_video, new_video, 3.0)
 
   def test_video_streaming_write_read_roundtrip(self):
@@ -524,7 +528,7 @@ class MediapyTest(parameterized.TestCase):
   def test_video_streaming_read_write(self):
     shape = (400, 400)
     num_images = 4
-    fps = 60
+    fps = 25
     bps = 40_000_000
     video = media.to_uint8(media.moving_circle(shape, num_images))
     with tempfile.TemporaryDirectory() as directory_name:
@@ -536,13 +540,16 @@ class MediapyTest(parameterized.TestCase):
         with media.VideoWriter(
             filename2,
             reader.shape,
-            fps=reader.fps,
-            bps=reader.bps,
+            metadata=reader.metadata,
             encoded_format='yuv420p') as writer:
           for image in reader:
             writer.add_image(image)
 
       new_video = media.read_video(filename2)
+      self.assertEqual(new_video.metadata.num_images, num_images)
+      self.assertEqual(new_video.metadata.shape, shape)
+      self.assertEqual(new_video.metadata.fps, fps)
+      self.assertGreater(new_video.metadata.bps, 1_000)
       self._check_similar(video, new_video, 3.0)
 
   def test_video_read_write_10bit(self):

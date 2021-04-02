@@ -78,7 +78,7 @@ Show the frames with their indices:
 Read and display a video (either local or from the Web):
 ```python
   VIDEO = 'https://github.com/hhoppe/data/raw/main/video.mp4'
-  show_video(read_video(VIDEO), fps=60)
+  show_video(read_video(VIDEO))
 ```
 
 Create and display a looping two-frame GIF video:
@@ -99,7 +99,7 @@ Darken a video frame-by-frame:
 """
 
 __docformat__ = 'google'
-__version__ = '0.2.1'
+__version__ = '0.2.2'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
@@ -123,7 +123,7 @@ import tempfile
 import typing
 from typing import Any, Callable, ContextManager, Generator, Iterable
 from typing import Iterator, List, Mapping, Optional, Sequence
-from typing import Tuple, TypeVar, Union
+from typing import Tuple, Type, TypeVar, Union
 import urllib.request
 
 import IPython.display
@@ -153,12 +153,12 @@ _config = _Config()
 
 
 def _open(path: _Path, *args: Any, **kwargs: Any) -> ContextManager[Any]:
-  """Opens the file; this is a hook for the built-in open()."""
+  """Opens the file; this is a hook for the built-in `open()`."""
   return open(path, *args, **kwargs)
 
 
 def _path_is_local(path: _Path) -> bool:
-  """Returns True if the path is in the filesystem accessible by 'ffmpeg'."""
+  """Returns True if the path is in the filesystem accessible by `ffmpeg`."""
   del path
   return True
 
@@ -179,7 +179,7 @@ def _print_err(*args: str, **kwargs: Any) -> None:
 
 def _chunked(iterable: Iterable[_T],
              n: Optional[int] = None) -> Iterator[Tuple[_T, ...]]:
-  """Returns elements collected as tuples of length at most 'n' if not None."""
+  """Returns elements collected as tuples of length at most `n` if not None."""
 
   def take(n: int, iterable: Iterable[_T]) -> Tuple[_T, ...]:
     return tuple(itertools.islice(iterable, n))
@@ -207,7 +207,7 @@ def _peek_first(iterator: Iterable[_T]) -> Tuple[_T, Iterable[_T]]:
 
 
 def _check_2d_shape(shape: Tuple[int, int]) -> None:
-  """Checks that 'shape' is of the form (height, width) with two integers."""
+  """Checks that `shape` is of the form (height, width) with two integers."""
   if len(shape) != 2:
     raise ValueError(f'Shape {shape} is not of the form (height, width).')
   if not all(isinstance(i, numbers.Integral) for i in shape):
@@ -411,7 +411,7 @@ def moving_circle(shape: Tuple[int, int] = (256, 256),
   This is useful for quick experimentation and testing.  See also `color_ramp`
   to generate a sample image.
 
-  >>> show_video(moving_circle((480, 640), 60))
+  >>> show_video(moving_circle((480, 640), 60), fps=60)
 
   Args:
     shape: 2D spatial dimensions (height, width) of generated video.
@@ -1049,6 +1049,10 @@ class VideoReader(_VideoIO, ContextManager[Any]):
   >>> with VideoReader('/tmp/river.mp4') as reader:
   ...   video = np.array(tuple(reader))
 
+  >>> url = 'https://github.com/hhoppe/data/raw/main/video.mp4'
+  >>> with VideoReader(url) as reader:
+  ...   show_video(reader)
+
   Attributes:
     path_or_url: Location of input video.
     output_format: Format of output images (default 'rgb'):
@@ -1125,7 +1129,12 @@ class VideoReader(_VideoIO, ContextManager[Any]):
     self.close()
 
   def read(self) -> Optional[np.ndarray]:
-    """Reads a video image frame (or None if at end of file)."""
+    """Reads a video image frame (or None if at end of file).
+
+    Returns:
+      A numpy array in the format specified by `output_format`, i.e., a 3D
+      array with 3 color channels, except for format 'gray' which is 2D.
+    """
     assert self._proc, 'Error: reading from an already closed context.'
     assert self._proc.stdout
     data = self._proc.stdout.read(self._num_bytes_per_image)
@@ -1169,7 +1178,7 @@ class VideoWriter(_VideoIO, ContextManager[Any]):
   >>> with VideoWriter('/tmp/v.mp4', shape, fps=60) as writer:
   ...   for image in moving_circle(shape, num_images=60):
   ...     writer.add_image(image)
-  >>> show_video(read_video('/tmp/v.mp4'), fps=60)
+  >>> show_video(read_video('/tmp/v.mp4'))
 
 
   Bitrate control may be specified using at most one of: `bps`, `qp`, or `crf`.
@@ -1185,9 +1194,11 @@ class VideoWriter(_VideoIO, ContextManager[Any]):
     shape: 2D spatial dimensions (height, width) of video image frames.  The
       dimensions must be even if 'encoded_format' has subsampled chroma (e.g.,
       'yuv420p' or 'yuv420p10le').
-    fps: Frames-per-second framerate (default is 60.0 except 25.0 for 'gif').
     codec: Compression algorithm as defined by "ffmpeg -codecs" (e.g., 'h264',
       'hevc', 'vp9', or 'gif').
+    metadata: Optional VideoMetadata object whose `fps` and `bps` attributes are
+      used if not specified as explicit parameters.
+    fps: Frames-per-second framerate (default is 60.0 except 25.0 for 'gif').
     bps: Requested average bits-per-second bitrate (default None).
     qp: Quantization parameter for video compression quality (default None).
     crf: Constant rate factor for video compression quality (default None).
@@ -1211,8 +1222,9 @@ class VideoWriter(_VideoIO, ContextManager[Any]):
                path: _Path,
                shape: Tuple[int, int],
                *,
-               fps: Optional[float] = None,
                codec: str = 'h264',
+               metadata: Optional[VideoMetadata] = None,
+               fps: Optional[float] = None,
                bps: Optional[int] = None,
                qp: Optional[int] = None,
                crf: Optional[float] = None,
@@ -1221,10 +1233,14 @@ class VideoWriter(_VideoIO, ContextManager[Any]):
                dtype: Any = np.uint8,
                encoded_format: Optional[str] = None) -> None:
     _check_2d_shape(shape)
+    if fps is None and metadata:
+      fps = metadata.fps
     if fps is None:
       fps = 25.0 if codec == 'gif' else 60.0
     if fps <= 0.0:
       raise ValueError(f'Frame-per-second value {fps} is invalid.')
+    if bps is None and metadata:
+      bps = metadata.bps
     bps = int(bps) if bps is not None else None
     if bps is not None and bps <= 0:
       raise ValueError(f'Bitrate value {bps} is invalid.')
@@ -1365,29 +1381,47 @@ class VideoWriter(_VideoIO, ContextManager[Any]):
       self._write_via_local_file = None
 
 
-def read_video(path_or_url: _Path, **kwargs: Any) -> np.ndarray:
-  """Returns a 4D array containing all images from a compressed video file.
+class _VideoArray(np.ndarray):
+  """Wrapper to add a VideoMetadata `metadata` attribute to a numpy array."""
+
+  metadata: Optional[VideoMetadata]
+
+  def __new__(cls: Type['_VideoArray'],
+              input_array: np.ndarray,
+              metadata: Optional[VideoMetadata] = None) -> '_VideoArray':
+    obj: _VideoArray = np.asarray(input_array).view(cls)
+    obj.metadata = metadata
+    return obj
+
+  def __array_finalize__(self, obj: '_VideoArray') -> None:
+    if obj is None:
+      return
+    self.metadata = getattr(obj, 'metadata', None)
+
+
+def read_video(path_or_url: _Path, **kwargs: Any) -> _VideoArray:
+  """Returns an array containing all images read from a compressed video file.
 
   >>> video = read_video('/tmp/river.mp4')
+  >>> print(f'The framerate is {video.metadata.fps} frames/s.')
   >>> show_video(video)
 
   >>> url = 'https://github.com/hhoppe/data/raw/main/video.mp4'
-  >>> show_video(read_video(url), fps=60)
-
-  To obtain the original framerate, one may use:
-
-  >>> with VideoReader(url) as reader:
-  ...   show_video(reader, fps=reader.fps)
+  >>> show_video(read_video(url))
 
   Args:
     path_or_url: Input video file.
     **kwargs: Additional parameters for `VideoReader`.
 
   Returns:
-    A 4D array with dimensions (frame, height, width, channel).
+    A 4D `numpy` array with dimensions (frame, height, width, channel), or a 3D
+    array if `output_format` is specified as 'gray'.  The returned array has an
+    attribute `metadata` containing `VideoMetadata` information.  This enables
+    `show_video` to retrieve the framerate in `metadata.fps`.  Note that the
+    metadata attribute is lost in most subsequent `numpy` operations.
   """
   with VideoReader(path_or_url, **kwargs) as reader:
-    return np.array(tuple(reader))
+    return _VideoArray(np.array(tuple(reader)), metadata=reader.metadata)
 
 
 def write_video(path: _Path, images: Iterable[np.ndarray],
@@ -1396,7 +1430,7 @@ def write_video(path: _Path, images: Iterable[np.ndarray],
 
   >>> video = moving_circle((480, 640), num_images=60)
   >>> write_video('/tmp/v.mp4', video, fps=60, qp=18)
-  >>> show_video(read_video('/tmp/v.mp4'), fps=60)
+  >>> show_video(read_video('/tmp/v.mp4'))
 
   Args:
     path: Output video file.
@@ -1411,6 +1445,7 @@ def write_video(path: _Path, images: Iterable[np.ndarray],
     dtype = np.uint8
   elif issubclass(dtype.type, np.floating):
     dtype = np.uint16
+  kwargs = {'metadata': getattr(images, 'metadata', None), **kwargs}
   with VideoWriter(path, shape=shape, dtype=dtype, **kwargs) as writer:
     for image in images:
       writer.add_image(image)
@@ -1425,8 +1460,10 @@ def compress_video(images: Iterable[np.ndarray],
   The video container is 'mp4' except when `codec` is 'gif'.
 
   >>> video = read_video('/tmp/river.mp4')
-  >>> data = compress_video(video, fps=30.0, bps=10_000_000)
+  >>> data = compress_video(video, bps=10_000_000)
   >>> print(len(data))
+
+  >>> data = compress_video(moving_circle((100, 100), num_images=10), fps=10)
 
   Args:
     images: Iterable over video frames.
@@ -1498,11 +1535,11 @@ def show_video(images: Iterable[np.ndarray],
   See `show_videos`.
 
   >>> video = read_video('https://github.com/hhoppe/data/raw/main/video.mp4')
-  >>> show_video(video, title='River video', fps=10)
+  >>> show_video(video, title='River video')
 
   >>> show_video(moving_circle((80, 80), num_images=10), fps=5, border=True)
 
-  >>> show_video(read_video('/tmp/river.mp4'), fps=60)
+  >>> show_video(read_video('/tmp/river.mp4'))
 
   Args:
     images: Iterable of video frames (e.g., a 4D array or a list of 2D or 3D
@@ -1540,7 +1577,8 @@ def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
 
   Args:
     videos: Iterable of videos, or dictionary of `{title: video}`.  Each video
-      must be an iterable of images.
+      must be an iterable of images.  If a video object has a `metadata`
+      (`VideoMetadata`) attribute, its `fps` field provides a default framerate.
     titles: Optional strings shown above the corresponding videos.
     width: Optional, overrides displayed width (in pixels).
     height: Optional, overrides displayed height (in pixels).
@@ -1567,17 +1605,19 @@ def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
     if len(list_videos) != len(list_titles):
       raise ValueError('Number of videos does not match number of titles'
                        f' ({len(list_videos)} vs {len(list_titles)}).')
-  if codec not in ('h264', 'gif'):
+  if codec not in {'h264', 'gif'}:
     raise ValueError(f'Codec {codec} is neither h264 or gif.')
 
   html_strings = []
   for video, title in zip(list_videos, list_titles):
+    metadata: Optional[VideoMetadata] = getattr(video, 'metadata', None)
     first_image, video = _peek_first(video)
     w, h = _get_width_height(width, height, first_image.shape[:2])
     if downsample and (w < first_image.shape[1] or h < first_image.shape[0]):
       # Not resize_video() because each image may have different depth and type.
       video = [resize_image(image, (h, w)) for image in video]
-    data = compress_video(video, fps=fps, bps=bps, qp=qp, codec=codec)
+    data = compress_video(
+        video, metadata=metadata, fps=fps, bps=bps, qp=qp, codec=codec)
     if title and _config.show_save_dir:
       suffix = _filename_suffix_from_codec(codec)
       path = pathlib.Path(_config.show_save_dir) / f'{title}{suffix}'

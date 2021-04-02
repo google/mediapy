@@ -60,13 +60,11 @@ file.
 ```python
     url = 'https://github.com/hhoppe/data/raw/main/video.mp4'
     video = media.read_video(url)
-    print(video.shape, video.dtype)  # (It is a numpy array; no framerate.)
-    media.show_video(video, fps=60)  # Display at 60 frames/s.
+    print(video.shape, video.dtype)  # It is a numpy array.
+    print(video.metadata.fps)  # The 'metadata' attribute includes framerate.
+    media.show_video(video)  # Play the video using the retrieved framerate.
 
-    with VideoReader(url) as reader:
-      show_video(reader, fps=reader.fps)
-
-    media.show_images(video, height=80, columns=4)  # Frames side-by-side.
+    media.show_images(video, height=80, columns=4)  # Show frames side-by-side.
 
     video = media.moving_circle((128, 128), num_images=10)
     media.show_video(video, fps=10)
