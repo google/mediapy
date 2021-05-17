@@ -348,7 +348,7 @@ class MediapyTest(parameterized.TestCase):
     with tempfile.TemporaryDirectory() as directory_name:
       path = pathlib.Path(directory_name) / 'test.png'
       media.write_image(path, image)
-      new_image = media.read_image(path, dtype=dtype)
+      new_image = media.read_image(path)
       self.assert_all_equal(image.shape, new_image.shape)
       self.assertEqual(image.dtype, new_image.dtype)
       self.assert_all_equal(image, new_image)

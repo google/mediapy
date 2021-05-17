@@ -99,7 +99,7 @@ Darken a video frame-by-frame:
 """
 
 __docformat__ = 'google'
-__version__ = '0.2.2'
+__version__ = '1.0.0'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
@@ -666,9 +666,17 @@ class set_show_save_dir:  # pylint: disable=invalid-name
 ## Image I/O.
 
 
-def read_image(path_or_url: _Path, *, dtype: Any = np.uint8) -> np.ndarray:
-  """Returns an image read from a file path or URL."""
-  dtype = np.dtype(dtype)
+def read_image(path_or_url: _Path, *, dtype: Any = None) -> np.ndarray:
+  """Returns an image read from a file path or URL.
+
+  Decoding is performed using `PIL`, which supports `uint8` images with 1, 3,
+  or 4 channels and `uint16` images with a single channel.
+
+  Args:
+    path_or_url: Path of input file.
+    dtype: Data type of the returned array.  If None, `np.uint8` or `np.uint16`
+      is inferred automatically.
+  """
   data = read_contents(path_or_url)
   return decompress_image(data, dtype)
 
@@ -754,8 +762,19 @@ def compress_image(image: np.ndarray,
 
 
 def decompress_image(data: bytes, dtype: Any = None) -> np.ndarray:
-  """Returns an image from a compressed data buffer."""
+  """Returns an image from a compressed data buffer.
+
+  Decoding is performed using `PIL`, which supports `uint8` images with 1, 3,
+  or 4 channels and `uint16` images with a single channel.
+
+  Args:
+    data: Buffer containing compressed image.
+    dtype: Data type of the returned array.  If None, `np.uint8` or `np.uint16`
+      is inferred automatically.
+  """
   pil_image = PIL.ImageOps.exif_transpose(PIL.Image.open(io.BytesIO(data)))
+  if dtype is None:
+    dtype = np.uint16 if pil_image.mode == 'I' else np.uint8
   return np.array(pil_image, dtype=dtype)
 
 
