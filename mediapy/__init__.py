@@ -99,7 +99,7 @@ Darken a video frame-by-frame:
 """
 
 __docformat__ = 'google'
-__version__ = '1.0.0'
+__version__ = '1.0.1'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
@@ -259,7 +259,7 @@ def set_output_height(num_pixels: int) -> None:
     output = importlib.import_module('google.colab.output')
     s = f'google.colab.output.setIframeHeight("{num_pixels}px")'
     output.eval_js(s)  # type: ignore
-  except ModuleNotFoundError:
+  except (ModuleNotFoundError, AttributeError):
     pass
 
 
@@ -271,7 +271,7 @@ def set_max_output_height(num_pixels: int) -> None:
     s = ('google.colab.output.setIframeHeight('
          f'0, true, {{maxHeight: {num_pixels}}})')
     output.eval_js(s)  # type: ignore
-  except ModuleNotFoundError:
+  except (ModuleNotFoundError, AttributeError):
     pass
 
 
