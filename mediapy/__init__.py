@@ -322,12 +322,12 @@ def to_type(a: Any, dtype: Any) -> np.ndarray:
     _as_valid_media_type(a.dtype)  # Verify that 'a' has a valid dtype.
   if a.dtype == bool:
     result = a.astype(dtype)
-    if issubclass(dtype.type, np.unsignedinteger):
+    if np.issubdtype(dtype, np.unsignedinteger):
       result = result * dtype.type(np.iinfo(dtype).max)
   elif a.dtype == dtype:
     result = a
-  elif issubclass(dtype.type, np.unsignedinteger):
-    if issubclass(a.dtype.type, np.unsignedinteger):
+  elif np.issubdtype(dtype, np.unsignedinteger):
+    if np.issubdtype(a.dtype, np.unsignedinteger):
       src_max = np.iinfo(a.dtype).max
     else:
       a = np.clip(a, 0.0, 1.0)
@@ -346,9 +346,9 @@ def to_type(a: Any, dtype: Any) -> np.ndarray:
       dst[values_too_large] = dst_max
       result = dst if a.ndim > 0 else dst[0]
   else:
-    assert issubclass(dtype.type, np.floating)
+    assert np.issubdtype(dtype, np.floating)
     result = a.astype(dtype)
-    if issubclass(a.dtype.type, np.unsignedinteger):
+    if np.issubdtype(a.dtype, np.unsignedinteger):
       result = result / dtype.type(np.iinfo(a.dtype).max)
   return result
 
@@ -368,10 +368,10 @@ def to_float01(a: Any, dtype: Any = np.float32) -> np.ndarray:
     contains unsigned integers; otherwise, array `a` is returned unchanged.
   """
   dtype = np.dtype(dtype)
-  if not issubclass(dtype.type, np.floating):
+  if not np.issubdtype(dtype, np.floating):
     raise ValueError(f'Type {dtype} is not floating-point.')
   a = np.asarray(a)
-  if issubclass(a.dtype.type, np.floating):
+  if np.issubdtype(a.dtype, np.floating):
     return a
   return to_type(a, dtype)
 
@@ -429,7 +429,7 @@ def moving_circle(shape: Tuple[int, int] = (256, 256),
     radius_squared = (min(shape) * 0.1)**2
     inside = np.sum((yx - center)**2, axis=-1) < radius_squared
     white_circle_color = (1.0, 1.0, 1.0)
-    if issubclass(dtype.type, np.unsignedinteger):
+    if np.issubdtype(dtype, np.unsignedinteger):
       white_circle_color = to_type([white_circle_color], dtype)[0]
     image[inside] = white_circle_color
     return image
@@ -537,7 +537,7 @@ def resize_image(image: Any, shape: Tuple[int, int]) -> np.ndarray:
 
   # A PIL image can be multichannel only if it has 3 or 4 uint8 channels,
   # and it can be resized only if it is uint8 or float32.
-  supported_single_channel = ((issubclass(image.dtype.type, np.floating) or
+  supported_single_channel = ((np.issubdtype(image.dtype, np.floating) or
                                image.dtype == np.uint8) and image.ndim == 2)
   supported_multichannel = (
       image.dtype == np.uint8 and image.ndim == 3 and image.shape[2] in (3, 4))
@@ -695,7 +695,7 @@ def write_image(path: _Path, image: np.ndarray, **kwargs: Any) -> None:
     **kwargs: Additional parameters for `PIL.Image.save()`.
   """
   image = _as_valid_media_array(image)
-  if issubclass(image.dtype.type, np.floating):
+  if np.issubdtype(image.dtype, np.floating):
     image = to_uint8(image)
   with _open(path, 'wb') as f:
     _pil_image(image).save(f, format='png', **kwargs)
@@ -856,7 +856,8 @@ def show_images(images: Union[Iterable[np.ndarray], Mapping[str, np.ndarray]],
                 vmax: Optional[float] = None,
                 cmap: Union[str, Callable[[np.ndarray], np.ndarray]] = 'gray',
                 border: Union[bool, str] = False,
-                ylabel: str = '') -> None:
+                ylabel: str = '',
+                html_class: str = 'show_images') -> None:
   """Displays a row of images in the IPython/Jupyter notebook.
 
   If a directory has been specified using `set_show_save_dir`, also saves each
@@ -884,6 +885,7 @@ def show_images(images: Union[Iterable[np.ndarray], Mapping[str, np.ndarray]],
     border: If `bool`, whether to place a black boundary around the image, or if
       `str`, the boundary CSS style.
     ylabel: Text (rotated by 90 degrees) shown on the left of each row.
+    html_class: CSS class name used in definition of HTML element.
   """
   if isinstance(images, collections.abc.Mapping):
     if titles is not None:
@@ -936,12 +938,13 @@ def show_images(images: Union[Iterable[np.ndarray], Mapping[str, np.ndarray]],
     # Create single-row tables each with no more than 'columns' elements.
     table_strings = []
     for row_html_strings in _chunked(html_strings, columns):
-      s = ''.join(f'<td>{e}</td>' for e in row_html_strings)
+      td = '<td style="padding:1px;">'
+      s = ''.join(f'{td}{e}</td>' for e in row_html_strings)
       if ylabel:
-        style = 'writing-mode: vertical-lr; transform: rotate(180deg);'
-        s = f'<td><span style="{style}">{ylabel}</span></td>' + s
-      table_strings.append('<table class="show_images"'
-                           f' style="border-spacing:0;"><tr>{s}</tr></table>')
+        style = 'writing-mode:vertical-lr; transform:rotate(180deg);'
+        s = f'{td}<span style="{style}">{ylabel}</span></td>' + s
+      table_strings.append(f'<table class="{html_class}"'
+                           f' style="border-spacing:0px;"><tr>{s}</tr></table>')
     return ''.join(table_strings)
 
   s = html_from_compressed_images()
@@ -1139,7 +1142,7 @@ class VideoReader(_VideoIO, ContextManager[Any]):
       self._popen = subprocess.Popen(
           command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
       self._proc = self._popen.__enter__()
-    except BaseException:
+    except Exception:
       self.__exit__(None, None, None)
       raise
     return self
@@ -1336,7 +1339,7 @@ class VideoWriter(_VideoIO, ContextManager[Any]):
       self._popen = subprocess.Popen(
           command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
       self._proc = self._popen.__enter__()
-    except BaseException:
+    except Exception:
       self.__exit__(None, None, None)
       raise
     return self
@@ -1462,7 +1465,7 @@ def write_video(path: _Path, images: Iterable[np.ndarray],
   dtype = first_image.dtype
   if dtype == np.bool:
     dtype = np.uint8
-  elif issubclass(dtype.type, np.floating):
+  elif np.issubdtype(dtype, np.floating):
     dtype = np.uint16
   kwargs = {'metadata': getattr(images, 'metadata', None), **kwargs}
   with VideoWriter(path, shape=shape, dtype=dtype, **kwargs) as writer:
@@ -1582,6 +1585,7 @@ def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
                 qp: Optional[int] = None,
                 codec: str = 'h264',
                 ylabel: str = '',
+                html_class: str = 'show_videos',
                 **kwargs: Any) -> None:
   """Displays a row of videos in the IPython notebook.
 
@@ -1610,6 +1614,7 @@ def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
     qp: Quantization parameter for video compression quality (default None).
     codec: Compression algorithm; must be either 'h264' or 'gif'.
     ylabel: Text (rotated by 90 degrees) shown on the left of each row.
+    html_class: CSS class name used in definition of HTML element.
     **kwargs: Additional parameters (`border`, `loop`, `autoplay`) for
       `html_from_compressed_video`.
   """
@@ -1653,11 +1658,12 @@ def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
   # Create single-row tables each with no more than 'columns' elements.
   table_strings = []
   for row_html_strings in _chunked(html_strings, columns):
-    s = ''.join(f'<td>{e}</td>' for e in row_html_strings)
+    td = '<td style="padding:1px;">'
+    s = ''.join(f'{td}{e}</td>' for e in row_html_strings)
     if ylabel:
-      style = 'writing-mode: vertical-lr; transform: rotate(180deg);'
-      s = f'<td><span style="{style}">{ylabel}</span></td>' + s
-    table_strings.append('<table class="show_videos"'
-                         f' style="border-spacing:0;"><tr>{s}</tr></table>')
+      style = 'writing-mode:vertical-lr; transform:rotate(180deg);'
+      s = f'{td}<span style="{style}">{ylabel}</span></td>' + s
+    table_strings.append(f'<table class="{html_class}"'
+                         f' style="border-spacing:0px;"><tr>{s}</tr></table>')
   s = ''.join(table_strings)
   IPython.display.display(IPython.display.HTML(s))
