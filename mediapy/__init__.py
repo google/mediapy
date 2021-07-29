@@ -99,7 +99,7 @@ Darken a video frame-by-frame:
 """
 
 __docformat__ = 'google'
-__version__ = '1.0.2'
+__version__ = '1.0.3'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
@@ -1137,7 +1137,8 @@ class VideoReader(_VideoIO, ContextManager[Any]):
 
       command = [
           ffmpeg_path, '-v', 'panic', '-nostdin', '-i', tmp_name, '-vcodec',
-          'rawvideo', '-f', 'image2pipe', '-pix_fmt', pix_fmt, '-'
+          'rawvideo', '-f', 'image2pipe', '-pix_fmt', pix_fmt, '-vsync', 'vfr',
+          '-'
       ]
       self._popen = subprocess.Popen(
           command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
