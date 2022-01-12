@@ -1374,7 +1374,7 @@ class VideoWriter(_VideoIO, ContextManager[Any]):
       if image.ndim == 2 and self.input_format == 'rgb':
         image = np.dstack((image, image, image))
       if not (image.ndim == 3 and image.shape[2] == 3):
-        raise ValueError('Image dimensions {image.shape} are invalid.')
+        raise ValueError(f'Image dimensions {image.shape} are invalid.')
     if image.shape[:2] != self.shape:
       raise ValueError(f'Image dimensions {image.shape[:2]} do not match'
                        f' those of the initialized video {self.shape}.')
