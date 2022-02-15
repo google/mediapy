@@ -167,7 +167,7 @@ def _search_for_ffmpeg_path() -> Optional[str]:
   """Returns a path to the ffmpeg program, or None if not found."""
   filename = shutil.which(_config.ffmpeg_name_or_path)
   if filename:
-    return filename
+    return filename  # pytype: disable=bad-return-type
   return None
 
 
