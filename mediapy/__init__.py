@@ -1464,7 +1464,7 @@ def write_video(path: _Path, images: Iterable[np.ndarray],
   first_image, images = _peek_first(images)
   shape = first_image.shape[:2]
   dtype = first_image.dtype
-  if dtype == np.bool:
+  if dtype == np.bool_:
     dtype = np.uint8
   elif np.issubdtype(dtype, np.floating):
     dtype = np.uint16
