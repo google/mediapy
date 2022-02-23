@@ -680,6 +680,38 @@ class MediapyTest(parameterized.TestCase):
     self.assertLen(re.findall('(?s)<table', htmls[0].data), 4)
     self.assertLen(re.findall('(?s)<video', htmls[0].data), 12)
 
+  def test_show_image_out_str(self):
+    htmls = []
+    with mock.patch('IPython.display.display', htmls.append):
+      out = media.show_image(media.color_ramp(), return_html=True)
+    self.assertEmpty(htmls)  # Nothing displayed
+    self.assertIsInstance(out, str)
+    self.assertIn('<img', out)
+
+  def test_show_images_out_str(self):
+    htmls = []
+    with mock.patch('IPython.display.display', htmls.append):
+      out = media.show_images([media.color_ramp()] * 3, return_html=True)
+    self.assertEmpty(htmls)  # Nothing displayed
+    self.assertIsInstance(out, str)
+    self.assertIn('<img', out)
+
+  def test_show_video_out_str(self):
+    htmls = []
+    with mock.patch('IPython.display.display', htmls.append):
+      out = media.show_video(media.moving_circle(), return_html=True)
+    self.assertEmpty(htmls)  # Nothing displayed
+    self.assertIsInstance(out, str)
+    self.assertIn('<video', out)
+
+  def test_show_videos_out_str(self):
+    htmls = []
+    with mock.patch('IPython.display.display', htmls.append):
+      out = media.show_videos([media.moving_circle()] * 2, return_html=True)
+    self.assertEmpty(htmls)  # Nothing displayed
+    self.assertIsInstance(out, str)
+    self.assertIn('<video', out)
+
 
 if __name__ == '__main__':
   absltest.main()

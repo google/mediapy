@@ -825,7 +825,7 @@ def _get_width_height(width: Optional[int], height: Optional[int],
 def show_image(image: Any,
                *,
                title: Optional[str] = None,
-               **kwargs: Any) -> None:
+               **kwargs: Any) -> Optional[str]:
   """Displays an image in the notebook and optionally saves it to a file.
 
   See `show_images`.
@@ -841,23 +841,29 @@ def show_image(image: Any,
     image: 2D array-like, or 3D array-like with 1, 3, or 4 channels.
     title: Optional text shown centered above the image.
     **kwargs: See `show_images`.
+
+  Returns:
+    html string if `return_html` is `True`.
   """
-  show_images([image], [title], **kwargs)
+  return show_images([image], [title], **kwargs)
 
 
-def show_images(images: Union[Iterable[np.ndarray], Mapping[str, np.ndarray]],
-                titles: Optional[Iterable[Optional[str]]] = None,
-                *,
-                width: Optional[int] = None,
-                height: Optional[int] = None,
-                downsample: bool = True,
-                columns: Optional[int] = None,
-                vmin: Optional[float] = None,
-                vmax: Optional[float] = None,
-                cmap: Union[str, Callable[[np.ndarray], np.ndarray]] = 'gray',
-                border: Union[bool, str] = False,
-                ylabel: str = '',
-                html_class: str = 'show_images') -> None:
+def show_images(
+    images: Union[Iterable[np.ndarray], Mapping[str, np.ndarray]],
+    titles: Optional[Iterable[Optional[str]]] = None,
+    *,
+    width: Optional[int] = None,
+    height: Optional[int] = None,
+    downsample: bool = True,
+    columns: Optional[int] = None,
+    vmin: Optional[float] = None,
+    vmax: Optional[float] = None,
+    cmap: Union[str, Callable[[np.ndarray], np.ndarray]] = 'gray',
+    border: Union[bool, str] = False,
+    ylabel: str = '',
+    html_class: str = 'show_images',
+    return_html: bool = False,
+) -> Optional[str]:
   """Displays a row of images in the IPython/Jupyter notebook.
 
   If a directory has been specified using `set_show_save_dir`, also saves each
@@ -886,6 +892,10 @@ def show_images(images: Union[Iterable[np.ndarray], Mapping[str, np.ndarray]],
       `str`, the boundary CSS style.
     ylabel: Text (rotated by 90 degrees) shown on the left of each row.
     html_class: CSS class name used in definition of HTML element.
+    return_html: If `True` return the raw HTML `str` instead of displaying.
+
+  Returns:
+    html string if `return_html` is `True`.
   """
   if isinstance(images, collections.abc.Mapping):
     if titles is not None:
@@ -952,7 +962,10 @@ def show_images(images: Union[Iterable[np.ndarray], Mapping[str, np.ndarray]],
     list_images = [image[::2, ::2] for image in list_images]
     png_datas = [compress_image(to_uint8(image)) for image in list_images]
     s = html_from_compressed_images()
-  IPython.display.display(IPython.display.HTML(s))
+  if return_html:
+    return s
+  else:
+    IPython.display.display(IPython.display.HTML(s))
 
 
 ## Video I/O.
@@ -1552,7 +1565,7 @@ def html_from_compressed_video(data: bytes,
 def show_video(images: Iterable[np.ndarray],
                *,
                title: Optional[str] = None,
-               **kwargs: Any) -> None:
+               **kwargs: Any) -> Optional[str]:
   """Displays a video in the IPython notebook and optionally saves it to a file.
 
   See `show_videos`.
@@ -1569,8 +1582,11 @@ def show_video(images: Iterable[np.ndarray],
       arrays).
     title: Optional text shown centered above the video.
     **kwargs: See `show_videos`.
+
+  Returns:
+    html string if `return_html` is `True`.
   """
-  show_videos([images], [title], **kwargs)
+  return show_videos([images], [title], **kwargs)
 
 
 def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
@@ -1587,7 +1603,8 @@ def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
                 codec: str = 'h264',
                 ylabel: str = '',
                 html_class: str = 'show_videos',
-                **kwargs: Any) -> None:
+                return_html: bool = False,
+                **kwargs: Any) -> Optional[str]:
   """Displays a row of videos in the IPython notebook.
 
   Creates HTML with `<video>` tags containing embedded H264-encoded bytestrings.
@@ -1616,8 +1633,12 @@ def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
     codec: Compression algorithm; must be either 'h264' or 'gif'.
     ylabel: Text (rotated by 90 degrees) shown on the left of each row.
     html_class: CSS class name used in definition of HTML element.
+    return_html: If `True` return the raw HTML `str` instead of displaying.
     **kwargs: Additional parameters (`border`, `loop`, `autoplay`) for
       `html_from_compressed_video`.
+
+  Returns:
+    html string if `return_html` is `True`.
   """
   if isinstance(videos, collections.abc.Mapping):
     if titles is not None:
@@ -1667,4 +1688,7 @@ def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
     table_strings.append(f'<table class="{html_class}"'
                          f' style="border-spacing:0px;"><tr>{s}</tr></table>')
   s = ''.join(table_strings)
-  IPython.display.display(IPython.display.HTML(s))
+  if return_html:
+    return s
+  else:
+    IPython.display.display(IPython.display.HTML(s))
