@@ -1,4 +1,3 @@
-
 # Copyright 2021 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -665,7 +664,10 @@ class set_show_save_dir:  # pylint: disable=invalid-name
 ## Image I/O.
 
 
-def read_image(path_or_url: _Path, *, dtype: Any = None) -> np.ndarray:
+def read_image(path_or_url: _Path,
+               *,
+               apply_exif_transpose: bool = True,
+               dtype: Any = None) -> np.ndarray:
   """Returns an image read from a file path or URL.
 
   Decoding is performed using `PIL`, which supports `uint8` images with 1, 3,
@@ -673,11 +675,12 @@ def read_image(path_or_url: _Path, *, dtype: Any = None) -> np.ndarray:
 
   Args:
     path_or_url: Path of input file.
+    apply_exif_transpose: If True, rotate image according to EXIF orientation.
     dtype: Data type of the returned array.  If None, `np.uint8` or `np.uint16`
       is inferred automatically.
   """
   data = read_contents(path_or_url)
-  return decompress_image(data, dtype)
+  return decompress_image(data, dtype, apply_exif_transpose)
 
 
 def write_image(path: _Path, image: np.ndarray, **kwargs: Any) -> None:
@@ -760,7 +763,9 @@ def compress_image(image: np.ndarray,
     return output.getvalue()
 
 
-def decompress_image(data: bytes, dtype: Any = None) -> np.ndarray:
+def decompress_image(data: bytes,
+                     dtype: Any = None,
+                     apply_exif_transpose: bool = True) -> np.ndarray:
   """Returns an image from a compressed data buffer.
 
   Decoding is performed using `PIL`, which supports `uint8` images with 1, 3,
@@ -770,8 +775,11 @@ def decompress_image(data: bytes, dtype: Any = None) -> np.ndarray:
     data: Buffer containing compressed image.
     dtype: Data type of the returned array.  If None, `np.uint8` or `np.uint16`
       is inferred automatically.
+    apply_exif_transpose: If True, rotate image according to EXIF orientation.
   """
-  pil_image = PIL.ImageOps.exif_transpose(PIL.Image.open(io.BytesIO(data)))
+  pil_image = PIL.Image.open(io.BytesIO(data))
+  if apply_exif_transpose:
+    pil_image = PIL.ImageOps.exif_transpose(pil_image)
   if dtype is None:
     dtype = np.uint16 if pil_image.mode == 'I' else np.uint8
   return np.array(pil_image, dtype=dtype)
