@@ -353,20 +353,6 @@ class MediapyTest(parameterized.TestCase):
       self.assertEqual(image.dtype, new_image.dtype)
       self.assert_all_equal(image, new_image)
 
-  def test_write_image(self):
-    image = media.color_ramp(shape=(500, 500), dtype=np.uint8)
-    np.random.seed(1)
-    image += np.random.randint(0, 10, size=image.shape, dtype=np.uint8)
-
-    def get_num_bytes(**kwargs):
-      with tempfile.TemporaryDirectory() as directory_name:
-        filename = os.path.join(directory_name, 'test.png')
-        media.write_image(filename, image, **kwargs)
-        return os.path.getsize(filename)
-
-    self.assertAlmostEqual(get_num_bytes(), 383588, delta=300)
-    self.assertAlmostEqual(get_num_bytes(optimize=True), 382909, delta=300)
-
   def test_to_rgb(self):
     a = np.array([[-0.2, 0.0, 0.2, 0.8, 1.0, 1.2]])
     gray_color = lambda x: [x, x, x]
