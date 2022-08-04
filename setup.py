@@ -16,6 +16,8 @@
 import pathlib
 import setuptools
 
+NAME = 'mediapy'
+
 
 def get_long_description():
   return pathlib.Path('README.md').read_text()
@@ -31,8 +33,8 @@ def get_version(rel_path):
 
 
 setuptools.setup(
-    name='mediapy',
-    version=get_version('mediapy/__init__.py'),
+    name=NAME,
+    version=get_version(f'{NAME}/__init__.py'),
     author='Google LLC',
     author_email='mediapy-owners@google.com',
     description='Read/write/show images and videos in an IPython notebook',
@@ -40,7 +42,10 @@ setuptools.setup(
     long_description_content_type='text/markdown',
     url='https://github.com/google/mediapy',
     license='Apache-2.0',
-    packages=['mediapy'],
+    packages=[NAME],
+    package_data={
+        NAME: ['py.typed'],
+    },
     classifiers=[
         'Programming Language :: Python :: 3',
         'License :: OSI Approved :: Apache Software License',

@@ -97,7 +97,7 @@ Darken a video frame-by-frame:
 """
 
 __docformat__ = 'google'
-__version__ = '1.0.3'
+__version__ = '1.1.1'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
@@ -107,19 +107,17 @@ import functools
 import importlib
 import io
 import itertools
-import math
 import numbers
 import os
 import pathlib
 import re
 import shlex
 import shutil
-import stat
 import subprocess
 import sys
 import tempfile
 import typing
-from typing import Any, Callable, ContextManager, Generator, Iterable
+from typing import Any, Callable, ContextManager, Iterable
 from typing import Iterator, List, Mapping, Optional, Sequence
 from typing import Tuple, Type, TypeVar, Union
 import urllib.request
@@ -127,8 +125,20 @@ import urllib.request
 import IPython.display
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.typing as npt
 import PIL.Image
 import PIL.ImageOps
+
+if not hasattr(PIL.Image, 'Resampling'):  # Allow Pillow<9.0.
+  PIL.Image.Resampling = PIL.Image
+
+_NDArray = npt.NDArray[Any]
+_ArrayLike = npt.ArrayLike
+_DTypeLike = npt.DTypeLike
+if typing.TYPE_CHECKING:
+  _DType = np.dtype[Any]
+else:
+  _DType = Any
 
 _IPYTHON_HTML_SIZE_LIMIT = 20_000_000
 _T = TypeVar('_T')
@@ -139,7 +149,7 @@ if typing.TYPE_CHECKING:
 else:
   _Path = Union[str, os.PathLike]
 
-## Miscellaneous.
+# ** Miscellaneous.
 
 
 class _Config:
@@ -150,7 +160,7 @@ class _Config:
 _config = _Config()
 
 
-def _open(path: _Path, *args: Any, **kwargs: Any) -> ContextManager[Any]:
+def _open(path: _Path, *args: Any, **kwargs: Any) -> Any:
   """Opens the file; this is a hook for the built-in `open()`."""
   return open(path, *args, **kwargs)
 
@@ -165,7 +175,7 @@ def _search_for_ffmpeg_path() -> Optional[str]:
   """Returns a path to the ffmpeg program, or None if not found."""
   filename = shutil.which(_config.ffmpeg_name_or_path)
   if filename:
-    return filename  # pytype: disable=bad-return-type
+    return str(filename)
   return None
 
 
@@ -256,7 +266,7 @@ def set_output_height(num_pixels: int) -> None:
     # We want to fail gracefully for non-Colab IPython notebooks.
     output = importlib.import_module('google.colab.output')
     s = f'google.colab.output.setIframeHeight("{num_pixels}px")'
-    output.eval_js(s)  # type: ignore
+    output.eval_js(s)
   except (ModuleNotFoundError, AttributeError):
     pass
 
@@ -268,15 +278,15 @@ def set_max_output_height(num_pixels: int) -> None:
     output = importlib.import_module('google.colab.output')
     s = ('google.colab.output.setIframeHeight('
          f'0, true, {{maxHeight: {num_pixels}}})')
-    output.eval_js(s)  # type: ignore
+    output.eval_js(s)
   except (ModuleNotFoundError, AttributeError):
     pass
 
 
-## Type conversions.
+# ** Type conversions.
 
 
-def _as_valid_media_type(dtype: Any) -> Any:
+def _as_valid_media_type(dtype: _DTypeLike) -> _DType:
   """Returns validated media data type."""
   dtype = np.dtype(dtype)
   if not issubclass(dtype.type, (np.unsignedinteger, np.floating)):
@@ -285,7 +295,7 @@ def _as_valid_media_type(dtype: Any) -> Any:
   return dtype
 
 
-def _as_valid_media_array(x: Iterable[Any]) -> np.ndarray:
+def _as_valid_media_array(x: _ArrayLike) -> _NDArray:
   """Converts to ndarray (if not already), and checks validity of data type."""
   a = np.asarray(x)
   if a.dtype == bool:
@@ -294,7 +304,7 @@ def _as_valid_media_array(x: Iterable[Any]) -> np.ndarray:
   return a
 
 
-def to_type(a: Any, dtype: Any) -> np.ndarray:
+def to_type(array: _ArrayLike, dtype: _DTypeLike) -> _NDArray:
   """Returns media array converted to specified type.
 
   A "media array" is one in which the dtype is either a floating-point type
@@ -314,8 +324,9 @@ def to_type(a: Any, dtype: Any) -> np.ndarray:
   Returns:
     Array `a` if it is already of the specified dtype, else a converted array.
   """
-  a = np.asarray(a)
-  dtype = _as_valid_media_type(dtype)
+  a = np.asarray(array)
+  dtype = np.dtype(dtype)
+  del array
   if a.dtype != bool:
     _as_valid_media_type(a.dtype)  # Verify that 'a' has a valid dtype.
   if a.dtype == bool:
@@ -326,13 +337,14 @@ def to_type(a: Any, dtype: Any) -> np.ndarray:
     result = a
   elif np.issubdtype(dtype, np.unsignedinteger):
     if np.issubdtype(a.dtype, np.unsignedinteger):
-      src_max = np.iinfo(a.dtype).max
+      src_max: float = np.iinfo(a.dtype).max
     else:
       a = np.clip(a, 0.0, 1.0)
       src_max = 1.0
     dst_max = np.iinfo(dtype).max
     if dst_max <= np.iinfo(np.uint16).max:
-      result = (a * np.float32(dst_max / src_max) + 0.5).astype(dtype)
+      scale = np.array(dst_max / src_max, dtype=np.float32)
+      result = (a * scale + 0.5).astype(dtype)
     elif dst_max <= np.iinfo(np.uint32).max:
       result = (a.astype(np.float64) * (dst_max / src_max) + 0.5).astype(dtype)
     else:
@@ -351,7 +363,7 @@ def to_type(a: Any, dtype: Any) -> np.ndarray:
   return result
 
 
-def to_float01(a: Any, dtype: Any = np.float32) -> np.ndarray:
+def to_float01(a: _ArrayLike, dtype: _DTypeLike = np.float32) -> _NDArray:
   """If array has unsigned integers, rescales them to the range [0.0, 1.0].
 
   Scaling is such that uint(0) maps to 0.0 and uint(MAX) maps to 1.0.  See
@@ -365,25 +377,25 @@ def to_float01(a: Any, dtype: Any = np.float32) -> np.ndarray:
     A new array of dtype values in the range [0.0, 1.0] if the input array `a`
     contains unsigned integers; otherwise, array `a` is returned unchanged.
   """
+  a = np.asarray(a)
   dtype = np.dtype(dtype)
   if not np.issubdtype(dtype, np.floating):
     raise ValueError(f'Type {dtype} is not floating-point.')
-  a = np.asarray(a)
   if np.issubdtype(a.dtype, np.floating):
     return a
   return to_type(a, dtype)
 
 
-def to_uint8(a: Any) -> np.ndarray:
+def to_uint8(a: _ArrayLike) -> _NDArray:
   """Returns array converted to uint8 values; see `to_type`."""
   return to_type(a, np.uint8)
 
 
-## Functions to generate example image and video data.
+# ** Functions to generate example image and video data.
 
 
 def color_ramp(shape: Tuple[int, int] = (64, 64), *,
-               dtype: Any = np.float32) -> np.ndarray:
+               dtype: _DTypeLike = np.float32) -> _NDArray:
   """Returns an image of a red-green color gradient.
 
   This is useful for quick experimentation and testing.  See also
@@ -403,7 +415,7 @@ def color_ramp(shape: Tuple[int, int] = (64, 64), *,
 def moving_circle(shape: Tuple[int, int] = (256, 256),
                   num_images: int = 10,
                   *,
-                  dtype: Any = np.float32) -> np.ndarray:
+                  dtype: _DTypeLike = np.float32) -> _NDArray:
   """Returns a video of a circle moving in front of a color ramp.
 
   This is useful for quick experimentation and testing.  See also `color_ramp`
@@ -419,7 +431,7 @@ def moving_circle(shape: Tuple[int, int] = (256, 256),
   _check_2d_shape(shape)
   dtype = np.dtype(dtype)
 
-  def generate_image(image_index: int) -> np.ndarray:
+  def generate_image(image_index: int) -> _NDArray:
     """Returns a video frame image."""
     image = color_ramp(shape, dtype=dtype)
     yx = np.moveaxis(np.indices(shape), 0, -1)
@@ -435,7 +447,7 @@ def moving_circle(shape: Tuple[int, int] = (256, 256),
   return np.array([generate_image(i) for i in range(num_images)])
 
 
-## Color-space conversions.
+# ** Color-space conversions.
 
 # Same matrix values as in two sources:
 # https://github.com/scikit-image/scikit-image/blob/master/skimage/color/colorconv.py#L377
@@ -448,7 +460,7 @@ _RGB_FROM_YUV_MATRIX = np.linalg.inv(_YUV_FROM_RGB_MATRIX)
 _YUV_CHROMA_OFFSET = np.array([0.0, 0.5, 0.5], dtype=np.float32)
 
 
-def yuv_from_rgb(rgb: Any) -> np.ndarray:
+def yuv_from_rgb(rgb: _ArrayLike) -> _NDArray:
   """Returns the RGB image/video mapped to YUV [0,1] color space.
 
   Note that the "YUV" color space used by video compressors is actually YCbCr!
@@ -459,15 +471,15 @@ def yuv_from_rgb(rgb: Any) -> np.ndarray:
   rgb = to_float01(rgb)
   if rgb.shape[-1] != 3:
     raise ValueError(f'The last dimension in {rgb.shape} is not 3.')
-  return np.matmul(rgb, _YUV_FROM_RGB_MATRIX) + _YUV_CHROMA_OFFSET
+  return rgb @ _YUV_FROM_RGB_MATRIX + _YUV_CHROMA_OFFSET
 
 
-def rgb_from_yuv(yuv: Any) -> np.ndarray:
+def rgb_from_yuv(yuv: _ArrayLike) -> _NDArray:
   """Returns the YUV image/video mapped to RGB [0,1] color space."""
   yuv = to_float01(yuv)
   if yuv.shape[-1] != 3:
     raise ValueError(f'The last dimension in {yuv.shape} is not 3.')
-  return np.matmul(yuv - _YUV_CHROMA_OFFSET, _RGB_FROM_YUV_MATRIX)
+  return (yuv - _YUV_CHROMA_OFFSET) @ _RGB_FROM_YUV_MATRIX
 
 
 # Same matrix values as in
@@ -485,7 +497,7 @@ _YCBCR_OFFSET = np.array([16.0, 128.0, 128.0], dtype=np.float32)
 # "studio range of 16-240 for U and V".  (Where does value 182 come from?)
 
 
-def ycbcr_from_rgb(rgb: Any) -> np.ndarray:
+def ycbcr_from_rgb(rgb: _ArrayLike) -> _NDArray:
   """Returns the RGB image/video mapped to YCbCr [0,1] color space.
 
   The YCbCr color space is the one called "YUV" by video compressors.
@@ -496,21 +508,22 @@ def ycbcr_from_rgb(rgb: Any) -> np.ndarray:
   rgb = to_float01(rgb)
   if rgb.shape[-1] != 3:
     raise ValueError(f'The last dimension in {rgb.shape} is not 3.')
-  return (np.matmul(rgb, _YCBCR_FROM_RGB_MATRIX) + _YCBCR_OFFSET) / 255.0
+  return (rgb @ _YCBCR_FROM_RGB_MATRIX + _YCBCR_OFFSET) / 255.0
 
 
-def rgb_from_ycbcr(ycbcr: Any) -> np.ndarray:
+def rgb_from_ycbcr(ycbcr: _ArrayLike) -> _NDArray:
   """Returns the YCbCr image/video mapped to RGB [0,1] color space."""
   ycbcr = to_float01(ycbcr)
   if ycbcr.shape[-1] != 3:
     raise ValueError(f'The last dimension in {ycbcr.shape} is not 3.')
-  return np.matmul(ycbcr * 255.0 - _YCBCR_OFFSET, _RGB_FROM_YCBCR_MATRIX)
+  return (ycbcr * 255.0 - _YCBCR_OFFSET) @ _RGB_FROM_YCBCR_MATRIX
 
 
-## Image processing.
+# ** Image processing.
 
 
-def _pil_image(image: Any, mode: Optional[str] = None) -> PIL.Image.Image:
+def _pil_image(image: _ArrayLike,
+               mode: Optional[str] = None) -> PIL.Image.Image:
   """Returns a PIL image given a numpy matrix (either uint8 or float [0,1])."""
   image = _as_valid_media_array(image)
   if image.ndim not in (2, 3):
@@ -518,7 +531,7 @@ def _pil_image(image: Any, mode: Optional[str] = None) -> PIL.Image.Image:
   return PIL.Image.fromarray(image, mode=mode)
 
 
-def resize_image(image: Any, shape: Tuple[int, int]) -> np.ndarray:
+def resize_image(image: _ArrayLike, shape: Tuple[int, int]) -> _NDArray:
   """Resizes image to specified spatial dimensions using a Lanczos filter.
 
   Args:
@@ -541,7 +554,8 @@ def resize_image(image: Any, shape: Tuple[int, int]) -> np.ndarray:
       image.dtype == np.uint8 and image.ndim == 3 and image.shape[2] in (3, 4))
   if supported_single_channel or supported_multichannel:
     return np.array(
-        _pil_image(image).resize(shape[::-1], resample=PIL.Image.LANCZOS),
+        _pil_image(image).resize(shape[::-1],
+                                 resample=PIL.Image.Resampling.LANCZOS),
         dtype=image.dtype)
   if image.ndim == 2:
     # We convert to floating-poing for resizing and convert back.
@@ -551,11 +565,11 @@ def resize_image(image: Any, shape: Tuple[int, int]) -> np.ndarray:
       [resize_image(channel, shape) for channel in np.moveaxis(image, -1, 0)])
 
 
-## Video processing.
+# ** Video processing.
 
 
-def resize_video(video: Iterable[np.ndarray], shape: Tuple[int,
-                                                           int]) -> np.ndarray:
+def resize_video(video: Iterable[_NDArray], shape: Tuple[int,
+                                                         int]) -> _NDArray:
   """Resizes `video` to specified spatial dimensions using a Lanczos filter.
 
   Args:
@@ -569,7 +583,7 @@ def resize_video(video: Iterable[np.ndarray], shape: Tuple[int,
   return np.array([resize_image(image, shape) for image in video])
 
 
-## General I/O.
+# ** General I/O.
 
 
 def _is_url(path_or_url: _Path) -> bool:
@@ -591,7 +605,7 @@ def read_contents(path_or_url: _Path) -> bytes:
 
 
 @contextlib.contextmanager
-def _read_via_local_file(path_or_url: _Path) -> Generator[str, None, None]:
+def _read_via_local_file(path_or_url: _Path) -> Iterator[str]:
   """Context to copy a remote file locally to read from it.
 
   Args:
@@ -611,7 +625,7 @@ def _read_via_local_file(path_or_url: _Path) -> Generator[str, None, None]:
 
 
 @contextlib.contextmanager
-def _write_via_local_file(path: _Path) -> Generator[str, None, None]:
+def _write_via_local_file(path: _Path) -> Iterator[str]:
   """Context to write a temporary local file and subsequently copy it remotely.
 
   Args:
@@ -641,13 +655,13 @@ class set_show_save_dir:  # pylint: disable=invalid-name
   It can be used either to set the state or as a context manager:
 
   >>> set_show_save_dir('/tmp')
-  >>> show_image(image, title='image1')  # Creates /tmp/image1.png.
-  >>> show_video(video, title='video2')  # Creates /tmp/video2.mp4.
+  >>> show_image(color_ramp(), title='image1')  # Creates /tmp/image1.png.
+  >>> show_video(moving_circle(), title='video2')  # Creates /tmp/video2.mp4.
   >>> set_show_save_dir(None)
 
   >>> with set_show_save_dir('/tmp'):
-  ...   show_image(image, title='image1')  # Creates /tmp/image1.png.
-  ...   show_video(video, title='video2')  # Creates /tmp/video2.mp4.
+  ...   show_image(color_ramp(), title='image1')  # Creates /tmp/image1.png.
+  ...   show_video(moving_circle(), title='video2')  # Creates /tmp/video2.mp4.
   """
 
   def __init__(self, directory: Optional[_Path]):
@@ -661,13 +675,13 @@ class set_show_save_dir:  # pylint: disable=invalid-name
     _config.show_save_dir = self._old_show_save_dir
 
 
-## Image I/O.
+# ** Image I/O.
 
 
 def read_image(path_or_url: _Path,
                *,
                apply_exif_transpose: bool = True,
-               dtype: Any = None) -> np.ndarray:
+               dtype: _DTypeLike = None) -> _NDArray:
   """Returns an image read from a file path or URL.
 
   Decoding is performed using `PIL`, which supports `uint8` images with 1, 3,
@@ -683,7 +697,7 @@ def read_image(path_or_url: _Path,
   return decompress_image(data, dtype, apply_exif_transpose)
 
 
-def write_image(path: _Path, image: np.ndarray, **kwargs: Any) -> None:
+def write_image(path: _Path, image: _ArrayLike, **kwargs: Any) -> None:
   """Writes an image to a file.
 
   Encoding is performed using `PIL`, which supports `uint8` images with 1, 3,
@@ -704,12 +718,12 @@ def write_image(path: _Path, image: np.ndarray, **kwargs: Any) -> None:
 
 
 def to_rgb(
-    array: Any,
+    array: _ArrayLike,
     *,
     vmin: Optional[float] = None,
     vmax: Optional[float] = None,
-    cmap: Union[str, Callable[[np.ndarray], np.ndarray]] = 'gray',
-) -> np.ndarray:
+    cmap: Union[str, Callable[[_ArrayLike], _NDArray]] = 'gray',
+) -> _NDArray:
   """Maps scalar values to RGB using value bounds and a color map.
 
   Args:
@@ -725,27 +739,26 @@ def to_rgb(
     A new array in which each element is affinely mapped from [vmin, vmax]
     to [0.0, 1.0] and then color-mapped.
   """
-  array = _as_valid_media_array(array)
+  a = _as_valid_media_array(array)
+  del array
   # For future numpy version 1.7.0:
-  # vmin = np.min(array, where=np.isfinite(array)) if vmin is None else vmin
-  # vmax = np.max(array, where=np.isfinite(array)) if vmax is None else vmax
-  vmin = np.min(np.where(np.isfinite(array), array,
-                         np.inf)) if vmin is None else vmin
-  vmax = np.max(np.where(np.isfinite(array), array,
-                         -np.inf)) if vmax is None else vmax
-  array = (array - vmin) / (vmax - vmin + np.finfo(float).eps)
+  # vmin = np.amin(a, where=np.isfinite(a)) if vmin is None else vmin
+  # vmax = np.amax(a, where=np.isfinite(a)) if vmax is None else vmax
+  vmin = np.amin(np.where(np.isfinite(a), a, np.inf)) if vmin is None else vmin
+  vmax = np.amax(np.where(np.isfinite(a), a, -np.inf)) if vmax is None else vmax
+  a = (a - vmin) / (vmax - vmin + np.finfo(float).eps)
   if isinstance(cmap, str):
     rgb_from_scalar = plt.cm.get_cmap(cmap)
   else:
     rgb_from_scalar = cmap
-  array = rgb_from_scalar(array)
+  a = rgb_from_scalar(a)
   # If there is a fully opaque alpha channel, remove it.
-  if (array.shape[-1] == 4 and np.all(to_float01(array[..., 3])) == 1.0):
-    array = array[..., :3]
-  return array
+  if (a.shape[-1] == 4 and np.all(to_float01(a[..., 3])) == 1.0):
+    a = a[..., :3]
+  return a
 
 
-def compress_image(image: np.ndarray,
+def compress_image(image: _ArrayLike,
                    *,
                    fmt: str = 'png',
                    **kwargs: Any) -> bytes:
@@ -764,8 +777,8 @@ def compress_image(image: np.ndarray,
 
 
 def decompress_image(data: bytes,
-                     dtype: Any = None,
-                     apply_exif_transpose: bool = True) -> np.ndarray:
+                     dtype: _DTypeLike = None,
+                     apply_exif_transpose: bool = True) -> _NDArray:
   """Returns an image from a compressed data buffer.
 
   Decoding is performed using `PIL`, which supports `uint8` images with 1, 3,
@@ -829,7 +842,7 @@ def _get_width_height(width: Optional[int], height: Optional[int],
   return shape[::-1]
 
 
-def show_image(image: Any,
+def show_image(image: _ArrayLike,
                *,
                title: Optional[str] = None,
                **kwargs: Any) -> Optional[str]:
@@ -852,11 +865,11 @@ def show_image(image: Any,
   Returns:
     html string if `return_html` is `True`.
   """
-  return show_images([image], [title], **kwargs)
+  return show_images([np.asarray(image)], [title], **kwargs)
 
 
 def show_images(
-    images: Union[Iterable[np.ndarray], Mapping[str, np.ndarray]],
+    images: Union[Iterable[_ArrayLike], Mapping[str, _ArrayLike]],
     titles: Optional[Iterable[Optional[str]]] = None,
     *,
     width: Optional[int] = None,
@@ -865,7 +878,7 @@ def show_images(
     columns: Optional[int] = None,
     vmin: Optional[float] = None,
     vmax: Optional[float] = None,
-    cmap: Union[str, Callable[[np.ndarray], np.ndarray]] = 'gray',
+    cmap: Union[str, Callable[[_ArrayLike], _NDArray]] = 'gray',
     border: Union[bool, str] = False,
     ylabel: str = '',
     html_class: str = 'show_images',
@@ -915,7 +928,7 @@ def show_images(
       raise ValueError('Number of images does not match number of titles'
                        f' ({len(list_images)} vs {len(list_titles)}).')
 
-  def ensure_mapped_to_rgb(image: Any) -> np.ndarray:
+  def ensure_mapped_to_rgb(image: _ArrayLike) -> _NDArray:
     image = _as_valid_media_array(image)
     if not (image.ndim == 2 or
             (image.ndim == 3 and image.shape[2] in (1, 3, 4))):
@@ -929,9 +942,10 @@ def show_images(
 
   list_images = [ensure_mapped_to_rgb(image) for image in list_images]
 
-  def maybe_downsample(image: np.ndarray) -> np.ndarray:
-    w, h = _get_width_height(width, height, image.shape[:2])
-    if w < image.shape[1] or h < image.shape[0]:
+  def maybe_downsample(image: _NDArray) -> _NDArray:
+    shape = typing.cast(Tuple[int, int], image.shape[:2])
+    w, h = _get_width_height(width, height, shape)
+    if w < shape[1] or h < shape[0]:
       image = resize_image(image, (h, w))
     return image
 
@@ -971,11 +985,11 @@ def show_images(
     s = html_from_compressed_images()
   if return_html:
     return s
-  else:
-    IPython.display.display(IPython.display.HTML(s))
+  IPython.display.display(IPython.display.HTML(s))
+  return None
 
 
-## Video I/O.
+# ** Video I/O.
 
 
 def _filename_suffix_from_codec(codec: str) -> str:
@@ -1062,7 +1076,7 @@ def _get_video_metadata(path: _Path) -> VideoMetadata:
 class _VideoIO:
   """Base class for `VideoReader` and `VideoWriter`."""
 
-  def _get_pix_fmt(self, dtype: Any, image_format: str) -> str:
+  def _get_pix_fmt(self, dtype: _DType, image_format: str) -> str:
     """Returns ffmpeg pix_fmt given data type and image format."""
     native_endian_suffix = {'little': 'le', 'big': 'be'}[sys.byteorder]
     return {
@@ -1116,7 +1130,7 @@ class VideoReader(_VideoIO, ContextManager[Any]):
   """
   path_or_url: _Path
   output_format: str
-  dtype: Any
+  dtype: _DType
   metadata: VideoMetadata
   num_images: int
   shape: Tuple[int, int]
@@ -1128,14 +1142,14 @@ class VideoReader(_VideoIO, ContextManager[Any]):
                path_or_url: _Path,
                *,
                output_format: str = 'rgb',
-               dtype: Any = np.uint8):
+               dtype: _DTypeLike = np.uint8):
     if output_format not in {'rgb', 'yuv', 'gray'}:
       raise ValueError(
           f'Output format {output_format} is not rgb, yuv, or gray.')
     self.path_or_url = path_or_url
     self.output_format = output_format
     self.dtype = np.dtype(dtype)
-    if self.dtype not in (np.uint8, np.uint16):
+    if self.dtype.type not in (np.uint8, np.uint16):
       raise ValueError(f'Type {dtype} is not np.uint8 or np.uint16.')
     self._read_via_local_file: Any = None
     self._popen: Optional['subprocess.Popen[bytes]'] = None
@@ -1145,6 +1159,7 @@ class VideoReader(_VideoIO, ContextManager[Any]):
     ffmpeg_path = _get_ffmpeg_path()
     try:
       self._read_via_local_file = _read_via_local_file(self.path_or_url)
+      # pylint: disable-next=no-member
       tmp_name = self._read_via_local_file.__enter__()
 
       self.metadata = _get_video_metadata(tmp_name)
@@ -1171,7 +1186,7 @@ class VideoReader(_VideoIO, ContextManager[Any]):
   def __exit__(self, *_: Any) -> None:
     self.close()
 
-  def read(self) -> Optional[np.ndarray]:
+  def read(self) -> Optional[_NDArray]:
     """Reads a video image frame (or None if at end of file).
 
     Returns:
@@ -1196,7 +1211,7 @@ class VideoReader(_VideoIO, ContextManager[Any]):
       raise AssertionError
     return image
 
-  def __iter__(self) -> Generator[np.ndarray, None, None]:
+  def __iter__(self) -> Iterator[_NDArray]:
     while True:
       image = self.read()
       if image is None:
@@ -1210,6 +1225,7 @@ class VideoReader(_VideoIO, ContextManager[Any]):
       self._popen = None
       self._proc = None
     if self._read_via_local_file:
+      # pylint: disable-next=no-member
       self._read_via_local_file.__exit__(None, None, None)
       self._read_via_local_file = None
 
@@ -1273,7 +1289,7 @@ class VideoWriter(_VideoIO, ContextManager[Any]):
                crf: Optional[float] = None,
                ffmpeg_args: Union[str, Sequence[str]] = '',
                input_format: str = 'rgb',
-               dtype: Any = np.uint8,
+               dtype: _DTypeLike = np.uint8,
                encoded_format: Optional[str] = None) -> None:
     _check_2d_shape(shape)
     if fps is None and metadata:
@@ -1300,7 +1316,7 @@ class VideoWriter(_VideoIO, ContextManager[Any]):
     if input_format not in {'rgb', 'yuv', 'gray'}:
       raise ValueError(f'Input format {input_format} is not rgb, yuv, or gray.')
     dtype = np.dtype(dtype)
-    if dtype not in (np.uint8, np.uint16):
+    if dtype.type not in (np.uint8, np.uint16):
       raise ValueError(f'Type {dtype} is not np.uint8 or np.uint16.')
     self.path = pathlib.Path(path)
     self.shape = shape
@@ -1346,6 +1362,7 @@ class VideoWriter(_VideoIO, ContextManager[Any]):
     input_pix_fmt = self._get_pix_fmt(self.dtype, self.input_format)
     try:
       self._write_via_local_file = _write_via_local_file(self.path)
+      # pylint: disable-next=no-member
       tmp_name = self._write_via_local_file.__enter__()
 
       # Writing to stdout using ('-f', 'mp4', '-') would require
@@ -1368,7 +1385,7 @@ class VideoWriter(_VideoIO, ContextManager[Any]):
   def __exit__(self, *_: Any) -> None:
     self.close()
 
-  def add_image(self, image: np.ndarray) -> None:
+  def add_image(self, image: _NDArray) -> None:
     """Writes a video frame.
 
     Args:
@@ -1420,23 +1437,24 @@ class VideoWriter(_VideoIO, ContextManager[Any]):
       self._popen = None
       self._proc = None
     if self._write_via_local_file:
+      # pylint: disable-next=no-member
       self._write_via_local_file.__exit__(None, None, None)
       self._write_via_local_file = None
 
 
-class _VideoArray(np.ndarray):
+class _VideoArray(npt.NDArray[Any]):
   """Wrapper to add a VideoMetadata `metadata` attribute to a numpy array."""
 
   metadata: Optional[VideoMetadata]
 
   def __new__(cls: Type['_VideoArray'],
-              input_array: np.ndarray,
+              input_array: _NDArray,
               metadata: Optional[VideoMetadata] = None) -> '_VideoArray':
     obj: _VideoArray = np.asarray(input_array).view(cls)
     obj.metadata = metadata
     return obj
 
-  def __array_finalize__(self, obj: '_VideoArray') -> None:
+  def __array_finalize__(self, obj: Any) -> None:
     if obj is None:
       return
     self.metadata = getattr(obj, 'metadata', None)
@@ -1467,7 +1485,7 @@ def read_video(path_or_url: _Path, **kwargs: Any) -> _VideoArray:
     return _VideoArray(np.array(tuple(reader)), metadata=reader.metadata)
 
 
-def write_video(path: _Path, images: Iterable[np.ndarray],
+def write_video(path: _Path, images: Iterable[_NDArray],
                 **kwargs: Any) -> None:
   """Writes images to a compressed video file.
 
@@ -1482,19 +1500,19 @@ def write_video(path: _Path, images: Iterable[np.ndarray],
     **kwargs: Additional parameters for `VideoWriter`.
   """
   first_image, images = _peek_first(images)
-  shape = first_image.shape[:2]
+  shape = typing.cast(Tuple[int, int], first_image.shape[:2])
   dtype = first_image.dtype
-  if dtype == np.bool_:
-    dtype = np.uint8
+  if dtype == bool:
+    dtype = np.dtype(np.uint8)
   elif np.issubdtype(dtype, np.floating):
-    dtype = np.uint16
+    dtype = np.dtype(np.uint16)
   kwargs = {'metadata': getattr(images, 'metadata', None), **kwargs}
   with VideoWriter(path, shape=shape, dtype=dtype, **kwargs) as writer:
     for image in images:
       writer.add_image(image)
 
 
-def compress_video(images: Iterable[np.ndarray],
+def compress_video(images: Iterable[_NDArray],
                    *,
                    codec: str = 'h264',
                    **kwargs: Any) -> bytes:
@@ -1524,7 +1542,7 @@ def compress_video(images: Iterable[np.ndarray],
     return tmp_path.read_bytes()
 
 
-def decompress_video(data: bytes, **kwargs: Any) -> np.ndarray:
+def decompress_video(data: bytes, **kwargs: Any) -> _NDArray:
   """Returns video images from an MP4-compressed data buffer."""
   with tempfile.TemporaryDirectory() as directory_name:
     tmp_path = pathlib.Path(directory_name) / 'file.mp4'
@@ -1569,7 +1587,7 @@ def html_from_compressed_video(data: bytes,
   return s
 
 
-def show_video(images: Iterable[np.ndarray],
+def show_video(images: Iterable[_NDArray],
                *,
                title: Optional[str] = None,
                **kwargs: Any) -> Optional[str]:
@@ -1596,8 +1614,8 @@ def show_video(images: Iterable[np.ndarray],
   return show_videos([images], [title], **kwargs)
 
 
-def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
-                              Mapping[str, Iterable[np.ndarray]]],
+def show_videos(videos: Union[Iterable[Iterable[_NDArray]],
+                              Mapping[str, Iterable[_NDArray]]],
                 titles: Optional[Iterable[Optional[str]]] = None,
                 *,
                 width: Optional[int] = None,
@@ -1653,7 +1671,7 @@ def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
           'Cannot have both a video dictionary and a titles parameter.')
     list_titles, list_videos = list(videos.keys()), list(videos.values())
   else:
-    list_videos = typing.cast(List[Iterable[np.ndarray]], list(videos))
+    list_videos = typing.cast(List[Iterable[_NDArray]], list(videos))
     list_titles = [None] * len(list_videos) if titles is None else list(titles)
     if len(list_videos) != len(list_titles):
       raise ValueError('Number of videos does not match number of titles'
@@ -1697,5 +1715,5 @@ def show_videos(videos: Union[Iterable[Iterable[np.ndarray]],
   s = ''.join(table_strings)
   if return_html:
     return s
-  else:
-    IPython.display.display(IPython.display.HTML(s))
+  IPython.display.display(IPython.display.HTML(s))
+  return None
