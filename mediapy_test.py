@@ -159,7 +159,7 @@ class MediapyTest(parameterized.TestCase):
     check(f64, np.uint16, [0, int(0.4 * 65535 + 0.5), 65535])
     check(f64, np.uint32, [0, int(0.4 * max32 + 0.5), max32])
     check(f64, np.float32, [0.0, np.float32(0.4), 1.0])
-    check(f64, np.float, [0.0, 0.4, 1.0])
+    check(f64, np.float64, [0.0, 0.4, 1.0])
 
     # An array with data type 'uint64' is possible, but it is awkward to process
     # exactly because it requires more than float64 intermediate precision.
@@ -319,11 +319,14 @@ class MediapyTest(parameterized.TestCase):
 
   def test_read_contents(self):
     data = b'Test data'
-    temp_file = self.create_tempfile(content=data)
-    new_data = media.read_contents(temp_file)
-    self.assertEqual(new_data, data)
-    new_data = media.read_contents(pathlib.Path(temp_file))
-    self.assertEqual(new_data, data)
+    with tempfile.TemporaryDirectory() as directory_name:
+      filename = os.path.join(directory_name, 'file')
+      with open(filename, 'wb') as f:
+        f.write(data)
+      new_data = media.read_contents(filename)
+      self.assertEqual(new_data, data)
+      new_data = media.read_contents(pathlib.Path(filename))
+      self.assertEqual(new_data, data)
 
   def test_read_via_local_file_on_local_file(self):
     with tempfile.TemporaryDirectory() as directory_name:
@@ -355,7 +358,10 @@ class MediapyTest(parameterized.TestCase):
 
   def test_to_rgb(self):
     a = np.array([[-0.2, 0.0, 0.2, 0.8, 1.0, 1.2]])
-    gray_color = lambda x: [x, x, x]
+
+    def gray_color(x):
+      return [x, x, x]
+
     self.assert_all_close(
         media.to_rgb(a), [[
             gray_color(0.0 / 1.4),
@@ -426,8 +432,7 @@ class MediapyTest(parameterized.TestCase):
       self.assertFalse((directory_path / 'ramp4.png').is_file())
 
   def test_show_image_downsampled(self):
-    np.random.seed(1)
-    image = np.random.rand(256, 256, 3)
+    image = np.random.default_rng(0).random((256, 256, 3))
     for downsample in (False, True):
       htmls = []
       with mock.patch('IPython.display.display', htmls.append):
@@ -626,8 +631,7 @@ class MediapyTest(parameterized.TestCase):
         self.assertBetween(path.stat().st_size, 1500, 3000)
 
   def test_show_video_downsampled(self):
-    np.random.seed(1)
-    video = np.random.rand(5, 64, 128, 3)
+    video = np.random.default_rng(0).random((5, 64, 128, 3))
     for downsample in (False, True):
       htmls = []
       with mock.patch('IPython.display.display', htmls.append):
