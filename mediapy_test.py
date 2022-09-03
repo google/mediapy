@@ -29,6 +29,7 @@ import unittest.mock as mock
 
 from absl.testing import absltest
 from absl.testing import parameterized
+import matplotlib.pyplot as plt
 import IPython
 import mediapy as media
 import numpy as np
@@ -387,6 +388,21 @@ class MediapyTest(parameterized.TestCase):
         media.to_rgb(a, vmin=-1.0, vmax=1.0, cmap='bwr'),
         [[0.596078, 0.596078, 1.0], [1.0, 0.996078, 0.996078], [1.0, 0.8, 0.8]],
         atol=0.002)
+
+  def test_uint8_to_rgb(self):
+    a = np.array([100, 120, 140], dtype=np.uint8)
+
+    def gray(x):
+      return plt.cm.get_cmap('gray')(x)[..., :3]
+
+    self.assert_all_close(media.to_rgb(a), gray([0.0, 0.5, 1.0]))
+    self.assert_all_close(
+        media.to_rgb(a, vmin=80, vmax=160), gray([0.25, 0.5, 0.75]))
+    self.assert_all_close(
+        media.to_rgb(a, vmin=110, vmax=160), gray([0.0, 0.2, 0.6]))
+    self.assert_all_close(
+        media.to_rgb(a, vmin=110, vmax=130), gray([0.0, 0.5, 1.0]))
+
 
   @parameterized.parameters('uint8', 'uint16')
   def test_compress_decompress_image_roundtrip(self, dtype):
