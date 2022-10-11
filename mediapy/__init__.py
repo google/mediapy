@@ -697,24 +697,30 @@ def read_image(path_or_url: _Path,
   return decompress_image(data, dtype, apply_exif_transpose)
 
 
-def write_image(path: _Path, image: _ArrayLike, **kwargs: Any) -> None:
+def write_image(path: _Path,
+                image: _ArrayLike,
+                fmt: str = 'png',
+                **kwargs: Any) -> None:
   """Writes an image to a file.
 
   Encoding is performed using `PIL`, which supports `uint8` images with 1, 3,
   or 4 channels and `uint16` images with a single channel.
+
+  File format is explicitly provided by `fmt` and not inferred by `path`.
 
   Args:
     path: Path of output file.
     image: Array-like object.  If its type is float, it is converted to np.uint8
       using `to_uint8` (thus clamping to the input to the range [0.0, 1.0]).
       Otherwise it must be np.uint8 or np.uint16.
+    fmt: Desired compression encoding, e.g. 'png'.
     **kwargs: Additional parameters for `PIL.Image.save()`.
   """
   image = _as_valid_media_array(image)
   if np.issubdtype(image.dtype, np.floating):
     image = to_uint8(image)
   with _open(path, 'wb') as f:
-    _pil_image(image).save(f, format='png', **kwargs)
+    _pil_image(image).save(f, format=fmt, **kwargs)
 
 
 def to_rgb(
