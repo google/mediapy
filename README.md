@@ -1,4 +1,4 @@
-# Read/write/show images and videos in an IPython/Jupyter notebook.
+# Read/write/show images and videos in an IPython/Jupyter notebook (test).
 
 [**[GitHub source]**](https://github.com/google/mediapy) &nbsp;
 [**[API docs]**](https://google.github.io/mediapy/) &nbsp;
