@@ -1,8 +1,10 @@
 # Read/write/show images and videos in an IPython/Jupyter notebook.
 
+[![Unittests](https://github.com/google/mediapy/actions/workflows/pytest_and_autopublish.yml/badge.svg)](https://github.com/google/mediapy/actions/workflows/pytest_and_autopublish.yml)
+[![PyPI version](https://badge.fury.io/py/mediapy.svg)](https://badge.fury.io/py/mediapy)
+
 [**[GitHub source]**](https://github.com/google/mediapy) &nbsp;
 [**[API docs]**](https://google.github.io/mediapy/) &nbsp;
-[**[PyPI package]**](https://pypi.org/project/mediapy/) &nbsp;
 [**[Colab example]**](https://colab.research.google.com/github/google/mediapy/blob/main/mediapy_examples.ipynb)
 
 ## Examples:
