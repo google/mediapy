@@ -1,0 +1,47 @@
+[project]
+name = "mediapy"
+description = "Read/write/show images and videos in an IPython notebook"
+readme = "README.md"
+requires-python = ">=3.7"
+license = {file = "LICENSE"}
+authors = [{name = "Google LLC", email="mediapy-owners@google.com"}]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Framework :: IPython",
+    "Framework :: Jupyter",
+    "Topic :: Multimedia :: Graphics :: Viewers",
+    "Topic :: Multimedia :: Video :: Display",
+]
+keywords = []
+
+# pip dependencies of the project
+dependencies = [
+    "ipython",
+    "matplotlib",
+    "numpy",
+    "Pillow",
+]
+
+# This is set automatically by flit using `mediapy.__version__`
+dynamic = ["version"]
+
+[project.urls]
+homepage = "https://github.com/google/mediapy"
+repository = "https://github.com/google/mediapy"
+# Other: `documentation`, `changelog`
+
+[project.optional-dependencies]
+# Development deps (unittest, linting, formating,...)
+# Installed through `pip install .[dev]`
+dev = [
+    "absl-py",
+    "pytest",
+    "pytest-xdist",
+    "pylint>=2.6.0",
+]
+
+[build-system]
+requires = ["flit_core >=3.5,<4"]
+build-backend = "flit_core.buildapi"

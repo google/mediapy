@@ -1,5 +1,0 @@
-absl-py
-ipython
-matplotlib
-numpy
-Pillow
