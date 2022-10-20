@@ -97,7 +97,7 @@ Darken a video frame-by-frame:
 """
 
 __docformat__ = 'google'
-__version__ = '1.1.1'
+__version__ = '1.1.2'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
