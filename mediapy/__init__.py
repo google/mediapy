@@ -753,7 +753,7 @@ def to_rgb(
   # vmax = np.amax(a, where=np.isfinite(a)) if vmax is None else vmax
   vmin = np.amin(np.where(np.isfinite(a), a, np.inf)) if vmin is None else vmin
   vmax = np.amax(np.where(np.isfinite(a), a, -np.inf)) if vmax is None else vmax
-  a = (a - vmin) / (vmax - vmin + np.finfo(float).eps)
+  a = (a.astype('float') - vmin) / (vmax - vmin + np.finfo(float).eps)
   if isinstance(cmap, str):
     rgb_from_scalar = plt.cm.get_cmap(cmap)
   else:
