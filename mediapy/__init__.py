@@ -132,12 +132,13 @@ import PIL.ImageOps
 if not hasattr(PIL.Image, 'Resampling'):  # Allow Pillow<9.0.
   PIL.Image.Resampling = PIL.Image
 
-_NDArray = Union[Any, npt.NDArray]
 _ArrayLike = npt.ArrayLike
 _DTypeLike = npt.DTypeLike
 if typing.TYPE_CHECKING:
+  _NDArray = np.ndarray[Any, Any]
   _DType = np.dtype[Any]
 else:
+  _NDArray = Any
   _DType = Any
 
 _IPYTHON_HTML_SIZE_LIMIT = 20_000_000
