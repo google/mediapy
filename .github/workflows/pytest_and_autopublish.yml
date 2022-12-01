@@ -3,14 +3,14 @@ name: Unittests & Auto-publish
 # Allow to trigger the workflow manually (e.g. when deps changes)
 on: [push, workflow_dispatch]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   pytest-job:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: true
 
     strategy:
       matrix:
