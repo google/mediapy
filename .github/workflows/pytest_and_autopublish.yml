@@ -3,14 +3,20 @@ name: Unittests & Auto-publish
 # Allow to trigger the workflow manually (e.g. when deps changes)
 on: [push, workflow_dispatch]
 
+concurrency:
+  # concurrency at the workflow level so the multiple matrix don't interfere each others
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Do not cancel the main branch (to make sure the publish job is never interupted)
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   pytest-job:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: true
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.x']
 
     steps:
     - uses: actions/checkout@v3
@@ -18,9 +24,10 @@ jobs:
     - run: sudo apt-get install ffmpeg
 
     # Install deps
-    - uses: actions/setup-python@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
       with:
-        python-version: 3.7
+        python-version: ${{ matrix.python-version }}
     - run: pip --version
     - run: pip install -e .[dev]
     - run: pip freeze

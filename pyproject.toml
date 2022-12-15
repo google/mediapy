@@ -2,7 +2,7 @@
 name = "mediapy"
 description = "Read/write/show images and videos in an IPython notebook"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 license = {file = "LICENSE"}
 authors = [{name = "Google LLC", email="mediapy-owners@google.com"}]
 classifiers = [
