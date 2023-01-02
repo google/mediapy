@@ -30,6 +30,7 @@ import unittest.mock as mock
 from absl.testing import absltest
 from absl.testing import parameterized
 import IPython
+import matplotlib
 import matplotlib.pyplot as plt
 import mediapy as media
 import numpy as np
@@ -394,7 +395,7 @@ class MediapyTest(parameterized.TestCase):
     a = np.array([100, 120, 140], dtype=np.uint8)
 
     def gray(x):
-      return plt.cm.get_cmap('gray')(x)[..., :3]
+      return matplotlib.colormaps['gray'](x)[..., :3]
 
     self.assert_all_close(media.to_rgb(a), gray([0.0, 0.5, 1.0]))
     self.assert_all_close(
@@ -455,6 +456,26 @@ class MediapyTest(parameterized.TestCase):
         media.show_image(image, height=64, downsample=downsample)
       size_min_max = (10_000, 20_000) if downsample else (200_000, 300_000)
       self.assertBetween(len(htmls[0].data), *size_min_max)
+
+  def test_show_image_default_no_pixelated(self):
+    htmls = []
+    with mock.patch('IPython.display.display', htmls.append):
+      media.show_image(media.color_ramp((10, 10)))
+    self.assertLen(htmls, 1)
+    self.assertIsInstance(htmls[0], IPython.display.HTML)
+    self.assertLen(re.findall('(?s)<img', htmls[0].data), 1)
+    self.assertLen(re.findall('(?s)image-rendering:auto', htmls[0].data), 1)
+    self.assertLen(re.findall('(?s)image-rendering:pixelated', htmls[0].data), 0)
+
+  def test_show_image_magnified_pixelated(self):
+    htmls = []
+    with mock.patch('IPython.display.display', htmls.append):
+      media.show_image(media.color_ramp((10, 10)), width=20)
+    self.assertLen(htmls, 1)
+    self.assertIsInstance(htmls[0], IPython.display.HTML)
+    self.assertLen(re.findall('(?s)<img', htmls[0].data), 1)
+    self.assertLen(re.findall('(?s)image-rendering:pixelated', htmls[0].data), 1)
+    self.assertLen(re.findall('(?s)image-rendering:auto', htmls[0].data), 0)
 
   def test_show_images_list(self):
     htmls = []

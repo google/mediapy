@@ -97,7 +97,7 @@ Darken a video frame-by-frame:
 """
 
 __docformat__ = 'google'
-__version__ = '1.1.2'
+__version__ = '1.1.3'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
@@ -123,6 +123,7 @@ from typing import Tuple, Type, TypeVar, Union
 import urllib.request
 
 import IPython.display
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
@@ -755,7 +756,7 @@ def to_rgb(
   vmax = np.amax(np.where(np.isfinite(a), a, -np.inf)) if vmax is None else vmax
   a = (a.astype('float') - vmin) / (vmax - vmin + np.finfo(float).eps)
   if isinstance(cmap, str):
-    rgb_from_scalar = plt.cm.get_cmap(cmap)
+    rgb_from_scalar = matplotlib.colormaps[cmap]
   else:
     rgb_from_scalar = cmap
   a = rgb_from_scalar(a)
@@ -811,6 +812,7 @@ def html_from_compressed_image(data: bytes,
                                *,
                                title: Optional[str] = None,
                                border: Union[bool, str] = False,
+                               pixelated: bool = True,
                                fmt: str = 'png') -> str:
   """Returns an HTML string with an image tag containing encoded data.
 
@@ -821,13 +823,15 @@ def html_from_compressed_image(data: bytes,
     title: Optional text shown centered above image.
     border: If `bool`, whether to place a black boundary around the image, or if
       `str`, the boundary CSS style.
+    pixelated: If True, sets the CSS style to 'image-rendering: pixelated;'.
     fmt: Compression encoding.
   """
   b64 = base64.b64encode(data).decode('utf-8')
   border = (f'{border}; ' if isinstance(border, str) else
             'border:1px solid black; ' if border else '')
+  s_pixelated = 'pixelated' if pixelated else 'auto'
   s = (f'<img width="{width}" height="{height}"'
-       f' style="{border}image-rendering:pixelated; object-fit:cover;"'
+       f' style="{border}image-rendering:{s_pixelated}; object-fit:cover;"'
        f' src="data:image/{fmt};base64,{b64}"/>')
   if title:
     s = f"""<div style="display:flex; align-items:left;">
@@ -889,6 +893,7 @@ def show_images(
     border: Union[bool, str] = False,
     ylabel: str = '',
     html_class: str = 'show_images',
+    pixelated: Optional[bool] = None,
     return_html: bool = False,
 ) -> Optional[str]:
   """Displays a row of images in the IPython/Jupyter notebook.
@@ -919,6 +924,9 @@ def show_images(
       `str`, the boundary CSS style.
     ylabel: Text (rotated by 90 degrees) shown on the left of each row.
     html_class: CSS class name used in definition of HTML element.
+    pixelated: If True, sets the CSS style to 'image-rendering: pixelated;'; if
+      False, sets 'image-rendering: auto'; if None, uses pixelated rendering
+      only on images for which `width` or `height` introduces magnification.
     return_html: If `True` return the raw HTML `str` instead of displaying.
 
   Returns:
@@ -970,9 +978,11 @@ def show_images(
     html_strings = []
     for image, title, png_data in zip(list_images, list_titles, png_datas):
       w, h = _get_width_height(width, height, image.shape[:2])
+      magnified = h > image.shape[0] or w > image.shape[1]
+      pixelated2 = pixelated if pixelated is not None else magnified
       html_strings.append(
           html_from_compressed_image(
-              png_data, w, h, title=title, border=border))
+              png_data, w, h, title=title, border=border, pixelated=pixelated2))
     # Create single-row tables each with no more than 'columns' elements.
     table_strings = []
     for row_html_strings in _chunked(html_strings, columns):
@@ -1691,6 +1701,7 @@ def show_videos(videos: Union[Iterable[Iterable[_NDArray]],
     if downsample and (w < first_image.shape[1] or h < first_image.shape[0]):
       # Not resize_video() because each image may have different depth and type.
       video = [resize_image(image, (h, w)) for image in video]
+      first_image = video[0]
     data = compress_video(
         video, metadata=metadata, fps=fps, bps=bps, qp=qp, codec=codec)
     if title and _config.show_save_dir:
@@ -1699,8 +1710,9 @@ def show_videos(videos: Union[Iterable[Iterable[_NDArray]],
       with _open(path, mode='wb') as f:
         f.write(data)
     if codec == 'gif':
+      pixelated = h > first_image.shape[0] or w > first_image.shape[1]
       html_string = html_from_compressed_image(
-          data, w, h, title=title, fmt='gif', **kwargs)
+          data, w, h, title=title, fmt='gif', pixelated=pixelated, **kwargs)
     else:
       html_string = html_from_compressed_video(
           data, w, h, title=title, **kwargs)
