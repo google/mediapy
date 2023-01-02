@@ -31,7 +31,6 @@ from absl.testing import absltest
 from absl.testing import parameterized
 import IPython
 import matplotlib
-import matplotlib.pyplot as plt
 import mediapy as media
 import numpy as np
 

@@ -124,7 +124,6 @@ import urllib.request
 
 import IPython.display
 import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import PIL.Image
