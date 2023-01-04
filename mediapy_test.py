@@ -31,9 +31,12 @@ from absl.testing import absltest
 from absl.testing import parameterized
 import IPython
 import matplotlib
-import mediapy as media
 import numpy as np
 
+import mediapy as media
+
+# pylint: disable=missing-function-docstring, protected-access
+# pylint: disable=too-many-public-methods
 
 _TEST_TYPES = ['uint8', 'uint16', 'uint32', 'float32', 'float64']
 _TEST_SHAPES1 = [(13, 21, 3), (14, 38, 2), (16, 21, 1), (18, 20), (17, 19)]
