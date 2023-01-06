@@ -97,7 +97,7 @@ Darken a video frame-by-frame:
 """
 
 __docformat__ = 'google'
-__version__ = '1.1.3'
+__version__ = '1.1.4'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
@@ -124,7 +124,6 @@ import urllib.request
 
 import IPython.display
 import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import PIL.Image
@@ -756,7 +755,10 @@ def to_rgb(
   vmax = np.amax(np.where(np.isfinite(a), a, -np.inf)) if vmax is None else vmax
   a = (a.astype('float') - vmin) / (vmax - vmin + np.finfo(float).eps)
   if isinstance(cmap, str):
-    rgb_from_scalar = matplotlib.colormaps[cmap]
+    if hasattr(matplotlib, 'colormaps'):
+      rgb_from_scalar = matplotlib.colormaps[cmap]  # Newer version.
+    else:
+      rgb_from_scalar = matplotlib.pyplot.cm.get_cmap(cmap)
   else:
     rgb_from_scalar = cmap
   a = rgb_from_scalar(a)

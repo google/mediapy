@@ -394,7 +394,11 @@ class MediapyTest(parameterized.TestCase):
     a = np.array([100, 120, 140], dtype=np.uint8)
 
     def gray(x):
-      return matplotlib.colormaps['gray'](x)[..., :3]
+      if hasattr(matplotlib, 'colormaps'):
+        cmap = matplotlib.colormaps['gray']  # Newer version.
+      else:
+        cmap = matplotlib.pyplot.cm.get_cmap('gray')
+      return cmap(x)[..., :3]
 
     self.assert_all_close(media.to_rgb(a), gray([0.0, 0.5, 1.0]))
     self.assert_all_close(
