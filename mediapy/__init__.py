@@ -750,7 +750,10 @@ def to_rgb(
   vmax = np.amax(np.where(np.isfinite(a), a, -np.inf)) if vmax is None else vmax
   a = (a.astype('float') - vmin) / (vmax - vmin + np.finfo(float).eps)
   if isinstance(cmap, str):
-    rgb_from_scalar = matplotlib.colormaps[cmap]
+    if hasattr(matplotlib, 'colormaps'):
+      rgb_from_scalar = matplotlib.colormaps[cmap]  # Newer version.
+    else:
+      rgb_from_scalar = matplotlib.pyplot.cm.get_cmap(cmap)
   else:
     rgb_from_scalar = cmap
   a = rgb_from_scalar(a)
