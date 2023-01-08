@@ -11,14 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-#!/usr/bin/env python3
-"""Tests for package mediapy.
-
-To run this test:
-  pip install -r requirements.txt
-  ./mediapy_test.py
-"""
+"""Tests for package mediapy."""
 
 import io
 import os
