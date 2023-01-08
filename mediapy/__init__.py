@@ -133,12 +133,29 @@ import PIL.ImageOps
 if not hasattr(PIL.Image, 'Resampling'):  # Allow Pillow<9.0.
   PIL.Image.Resampling = PIL.Image
 
-_ArrayLike = npt.ArrayLike
-_DTypeLike = npt.DTypeLike
+# Selected and reordered here for pdoc documentation.
+__all__ = [
+    'show_image', 'show_images', 'show_video', 'show_videos',
+    'read_image', 'write_image', 'read_video', 'write_video',
+    'VideoReader', 'VideoWriter', 'VideoMetadata',
+    'compress_image', 'decompress_image', 'compress_video', 'decompress_video',
+    'html_from_compressed_image', 'html_from_compressed_video',
+    'resize_image', 'resize_video',
+    'to_rgb', 'to_type', 'to_float01', 'to_uint8',
+    'set_output_height', 'set_max_output_height',
+    'color_ramp', 'moving_circle',
+    'set_show_save_dir',
+    'set_ffmpeg', 'video_is_available',
+]
+
 if typing.TYPE_CHECKING:
+  _ArrayLike = npt.ArrayLike
+  _DTypeLike = npt.DTypeLike
   _NDArray = np.ndarray[Any, Any]
   _DType = np.dtype[Any]
 else:
+  _ArrayLike = Any
+  _DTypeLike = Any
   _NDArray = Any
   _DType = Any
 
