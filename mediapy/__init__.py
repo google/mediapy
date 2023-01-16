@@ -555,7 +555,7 @@ def resize_image(image: _ArrayLike, shape: tuple[int, int]) -> _NDArray:
             shape[::-1], resample=PIL.Image.Resampling.LANCZOS),
         dtype=image.dtype)
   if image.ndim == 2:
-    # We convert to floating-poing for resizing and convert back.
+    # We convert to floating-point for resizing and convert back.
     return to_type(resize_image(to_float01(image), shape), image.dtype)
   # We resize each image channel individually.
   return np.dstack(
