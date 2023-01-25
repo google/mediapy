@@ -12,13 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#!/usr/bin/env python3
-"""Tests for package mediapy.
-
-To run this test:
-  pip install -r requirements.txt
-  ./mediapy_test.py
-"""
+"""Tests for package mediapy."""
 
 import io
 import os
@@ -34,6 +28,8 @@ import matplotlib
 import mediapy as media
 import numpy as np
 
+# pylint: disable=missing-function-docstring, protected-access
+# pylint: disable=too-many-public-methods
 
 _TEST_TYPES = ['uint8', 'uint16', 'uint32', 'float32', 'float64']
 _TEST_SHAPES1 = [(13, 21, 3), (14, 38, 2), (16, 21, 1), (18, 20), (17, 19)]

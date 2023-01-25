@@ -45,3 +45,35 @@ dev = [
 [build-system]
 requires = ["flit_core >=3.5,<4"]
 build-backend = "flit_core.buildapi"
+
+[tool.autopep8]
+indent_size = 2
+max_line_length = 80
+ignore = "E121,E125,E126,E129,E226,E302,E305,E501,W504,E741"
+aggressive = 3
+recursive = true
+
+[tool.mypy]
+strict = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "mediapy_test"
+ignore_errors = true
+
+[tool.pylint.main]
+disable = [
+    "unspecified-encoding", "line-too-long", "too-many-lines",
+    "too-few-public-methods", "too-many-locals", "too-many-instance-attributes",
+    "too-many-branches", "too-many-statements", "using-constant-test",
+]
+reports = false
+score = false
+recursive = true
+
+[tool.pylint.basic]
+good-names-rgxs = "^[a-z][a-z0-9]?|[A-Z]([A-Z_]*[A-Z])?$"
+
+[tool.pylint.format]
+indent-string = "  "
+expected-line-ending-format = "LF"
