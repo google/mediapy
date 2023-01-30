@@ -519,8 +519,7 @@ def rgb_from_ycbcr(ycbcr: _ArrayLike) -> _NDArray:
 # ** Image processing.
 
 
-def _pil_image(image: _ArrayLike,
-               mode: str | None = None) -> PIL.Image.Image:
+def _pil_image(image: _ArrayLike, mode: str | None = None) -> PIL.Image.Image:
   """Returns a PIL image given a numpy matrix (either uint8 or float [0,1])."""
   image = _as_valid_media_array(image)
   if image.ndim not in (2, 3):
@@ -1050,8 +1049,17 @@ def _get_video_metadata(path: _Path) -> VideoMetadata:
   if not pathlib.Path(path).is_file():
     raise RuntimeError(f"Video file '{path}' is not found.")
   command = [
-      _get_ffmpeg_path(), '-nostdin', '-i',
-      str(path), '-acodec', 'copy', '-vcodec', 'copy', '-f', 'null', '-',
+      _get_ffmpeg_path(),
+      '-nostdin',
+      '-i',
+      str(path),
+      '-acodec',
+      'copy',
+      '-vcodec',
+      'copy',
+      '-f',
+      'null',
+      '-',
   ]
   with subprocess.Popen(
       command, stderr=subprocess.PIPE, encoding='utf-8') as proc:
@@ -1179,8 +1187,20 @@ class VideoReader(_VideoIO):
           math.prod(self.shape) * num_channels * bytes_per_channel)
 
       command = [
-          ffmpeg_path, '-v', 'panic', '-nostdin', '-i', tmp_name, '-vcodec',
-          'rawvideo', '-f', 'image2pipe', '-pix_fmt', pix_fmt, '-vsync', 'vfr',
+          ffmpeg_path,
+          '-v',
+          'panic',
+          '-nostdin',
+          '-i',
+          tmp_name,
+          '-vcodec',
+          'rawvideo',
+          '-f',
+          'image2pipe',
+          '-pix_fmt',
+          pix_fmt,
+          '-vsync',
+          'vfr',
           '-',
       ]
       self._popen = subprocess.Popen(
@@ -1376,9 +1396,25 @@ class VideoWriter(_VideoIO):
       # ('-movflags', 'frag_keyframe+empty_moov') and the result is nonportable.
       height, width = self.shape
       command = [
-          ffmpeg_path, '-v', 'error', '-f', 'rawvideo', '-vcodec', 'rawvideo',
-          '-pix_fmt', input_pix_fmt, '-s', f'{width}x{height}', '-r',
-          f'{self.fps}', '-i', '-', '-an', '-vcodec', self.codec, '-pix_fmt',
+          ffmpeg_path,
+          '-v',
+          'error',
+          '-f',
+          'rawvideo',
+          '-vcodec',
+          'rawvideo',
+          '-pix_fmt',
+          input_pix_fmt,
+          '-s',
+          f'{width}x{height}',
+          '-r',
+          f'{self.fps}',
+          '-i',
+          '-',
+          '-an',
+          '-vcodec',
+          self.codec,
+          '-pix_fmt',
           self.encoded_format,
       ] + self._bitrate_args + self.ffmpeg_args + ['-y', tmp_name]
       self._popen = subprocess.Popen(
@@ -1693,7 +1729,7 @@ def show_videos(
     first_image, video = _peek_first(video)
     w, h = _get_width_height(width, height,
                              first_image.shape[:2])  # type: ignore[arg-type]
-    if downsample and (w < first_image.shape[1] or h < first_image.shape[0]):
+    if downsample and (w < first_image.shape[1] or h < first_image.shape[0]):  # pytype: disable=attribute-error
       # Not resize_video() because each image may have different depth and type.
       video = [resize_image(image, (h, w)) for image in video]
       first_image = video[0]
@@ -1705,7 +1741,7 @@ def show_videos(
       with _open(path, mode='wb') as f:
         f.write(data)
     if codec == 'gif':
-      pixelated = h > first_image.shape[0] or w > first_image.shape[1]
+      pixelated = h > first_image.shape[0] or w > first_image.shape[1]  # pytype: disable=attribute-error
       html_string = html_from_compressed_image(
           data, w, h, title=title, fmt='gif', pixelated=pixelated, **kwargs)
     else:
