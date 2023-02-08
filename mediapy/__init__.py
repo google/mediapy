@@ -181,8 +181,9 @@ def _print_err(*args: str, **kwargs: Any) -> None:
   print(*args, **kwargs)
 
 
-def _chunked(iterable: Iterable[_T],
-             n: int | None = None) -> Iterator[tuple[_T, ...]]:
+def _chunked(
+    iterable: Iterable[_T], n: int | None = None
+) -> Iterator[tuple[_T, ...]]:
   """Returns elements collected as tuples of length at most `n` if not None."""
 
   def take(n: int, iterable: Iterable[_T]) -> tuple[_T, ...]:
@@ -235,11 +236,18 @@ def _run(args: str | Sequence[str]) -> None:
       stdout=subprocess.PIPE,
       stderr=subprocess.STDOUT,
       check=False,
-      universal_newlines=True)
+      universal_newlines=True,
+  )
   print(proc.stdout, end='', flush=True)
   if proc.returncode:
     raise RuntimeError(
-        f"Command '{proc.args}' failed with code {proc.returncode}.")
+        f"Command '{proc.args}' failed with code {proc.returncode}."
+    )
+
+
+def _display_html(text: str, /) -> None:
+  """In a Jupyter notebook, display the HTML `text`."""
+  IPython.display.display(IPython.display.HTML(text))  # type: ignore
 
 
 def set_ffmpeg(name_or_path: _Path) -> None:
@@ -272,8 +280,10 @@ def set_max_output_height(num_pixels: int) -> None:
   try:
     # We want to fail gracefully for non-Colab IPython notebooks.
     output = importlib.import_module('google.colab.output')
-    s = ('google.colab.output.setIframeHeight('
-         f'0, true, {{maxHeight: {num_pixels}}})')
+    s = (
+        'google.colab.output.setIframeHeight('
+        f'0, true, {{maxHeight: {num_pixels}}})'
+    )
     output.eval_js(s)
   except (ModuleNotFoundError, AttributeError):
     pass
@@ -287,7 +297,8 @@ def _as_valid_media_type(dtype: _DTypeLike) -> _DType:
   dtype = np.dtype(dtype)
   if not issubclass(dtype.type, (np.unsignedinteger, np.floating)):
     raise ValueError(
-        f'Type {dtype} is not a valid media data type (uint or float).')
+        f'Type {dtype} is not a valid media data type (uint or float).'
+    )
   return dtype
 
 
@@ -390,9 +401,9 @@ def to_uint8(a: _ArrayLike) -> _NDArray:
 # ** Functions to generate example image and video data.
 
 
-def color_ramp(shape: tuple[int, int] = (64, 64),
-               *,
-               dtype: _DTypeLike = np.float32) -> _NDArray:
+def color_ramp(
+    shape: tuple[int, int] = (64, 64), *, dtype: _DTypeLike = np.float32
+) -> _NDArray:
   """Returns an image of a red-green color gradient.
 
   This is useful for quick experimentation and testing.  See also
@@ -409,10 +420,12 @@ def color_ramp(shape: tuple[int, int] = (64, 64),
   return to_type(image, dtype)
 
 
-def moving_circle(shape: tuple[int, int] = (256, 256),
-                  num_images: int = 10,
-                  *,
-                  dtype: _DTypeLike = np.float32) -> _NDArray:
+def moving_circle(
+    shape: tuple[int, int] = (256, 256),
+    num_images: int = 10,
+    *,
+    dtype: _DTypeLike = np.float32,
+) -> _NDArray:
   """Returns a video of a circle moving in front of a color ramp.
 
   This is useful for quick experimentation and testing.  See also `color_ramp`
@@ -433,8 +446,8 @@ def moving_circle(shape: tuple[int, int] = (256, 256),
     image = color_ramp(shape, dtype=dtype)
     yx = np.moveaxis(np.indices(shape), 0, -1)
     center = (shape[0] * 0.6, shape[1] * (image_index + 0.5) / num_images)
-    radius_squared = (min(shape) * 0.1)**2
-    inside = np.sum((yx - center)**2, axis=-1) < radius_squared
+    radius_squared = (min(shape) * 0.1) ** 2
+    inside = np.sum((yx - center) ** 2, axis=-1) < radius_squared
     white_circle_color = (1.0, 1.0, 1.0)
     if np.issubdtype(dtype, np.unsignedinteger):
       white_circle_color = to_type([white_circle_color], dtype)[0]
@@ -450,9 +463,13 @@ def moving_circle(shape: tuple[int, int] = (256, 256),
 # https://github.com/scikit-image/scikit-image/blob/master/skimage/color/colorconv.py#L377
 # https://github.com/tensorflow/tensorflow/blob/r1.14/tensorflow/python/ops/image_ops_impl.py#L2754
 _YUV_FROM_RGB_MATRIX = np.array(
-    [[0.299, -0.14714119, 0.61497538], [0.587, -0.28886916, -0.51496512],
-     [0.114, 0.43601035, -0.10001026]],
-    dtype=np.float32)
+    [
+        [0.299, -0.14714119, 0.61497538],
+        [0.587, -0.28886916, -0.51496512],
+        [0.114, 0.43601035, -0.10001026],
+    ],
+    dtype=np.float32,
+)
 _RGB_FROM_YUV_MATRIX = np.linalg.inv(_YUV_FROM_RGB_MATRIX)
 _YUV_CHROMA_OFFSET = np.array([0.0, 0.5, 0.5], dtype=np.float32)
 
@@ -483,9 +500,13 @@ def rgb_from_yuv(yuv: _ArrayLike) -> _NDArray:
 # https://github.com/scikit-image/scikit-image/blob/master/skimage/color/colorconv.py#L1654
 # and https://en.wikipedia.org/wiki/YUV#Studio_swing_for_BT.601
 _YCBCR_FROM_RGB_MATRIX = np.array(
-    [[65.481, 128.553, 24.966], [-37.797, -74.203, 112.0],
-     [112.0, -93.786, -18.214]],
-    dtype=np.float32).transpose()
+    [
+        [65.481, 128.553, 24.966],
+        [-37.797, -74.203, 112.0],
+        [112.0, -93.786, -18.214],
+    ],
+    dtype=np.float32,
+).transpose()
 _RGB_FROM_YCBCR_MATRIX = np.linalg.inv(_YCBCR_FROM_RGB_MATRIX)
 _YCBCR_OFFSET = np.array([16.0, 128.0, 128.0], dtype=np.float32)
 # Note that _YCBCR_FROM_RGB_MATRIX =~ _YUV_FROM_RGB_MATRIX * [219, 256, 182];
@@ -544,21 +565,26 @@ def resize_image(image: _ArrayLike, shape: tuple[int, int]) -> _NDArray:
 
   # A PIL image can be multichannel only if it has 3 or 4 uint8 channels,
   # and it can be resized only if it is uint8 or float32.
-  supported_single_channel = ((np.issubdtype(image.dtype, np.floating) or
-                               image.dtype == np.uint8) and image.ndim == 2)
+  supported_single_channel = (
+      np.issubdtype(image.dtype, np.floating) or image.dtype == np.uint8
+  ) and image.ndim == 2
   supported_multichannel = (
-      image.dtype == np.uint8 and image.ndim == 3 and image.shape[2] in (3, 4))
+      image.dtype == np.uint8 and image.ndim == 3 and image.shape[2] in (3, 4)
+  )
   if supported_single_channel or supported_multichannel:
     return np.array(
         _pil_image(image).resize(
-            shape[::-1], resample=PIL.Image.Resampling.LANCZOS),
-        dtype=image.dtype)
+            shape[::-1], resample=PIL.Image.Resampling.LANCZOS
+        ),
+        dtype=image.dtype,
+    )
   if image.ndim == 2:
     # We convert to floating-point for resizing and convert back.
     return to_type(resize_image(to_float01(image), shape), image.dtype)
   # We resize each image channel individually.
   return np.dstack(
-      [resize_image(channel, shape) for channel in np.moveaxis(image, -1, 0)])
+      [resize_image(channel, shape) for channel in np.moveaxis(image, -1, 0)]
+  )
 
 
 # ** Video processing.
@@ -583,7 +609,8 @@ def resize_video(video: Iterable[_NDArray], shape: tuple[int, int]) -> _NDArray:
 
 def _is_url(path_or_url: _Path) -> bool:
   return isinstance(path_or_url, str) and path_or_url.startswith(
-      ('http://', 'https://', 'file://'))
+      ('http://', 'https://', 'file://')
+  )
 
 
 def read_contents(path_or_url: _Path) -> bytes:
@@ -673,10 +700,12 @@ class set_show_save_dir:  # pylint: disable=invalid-name
 # ** Image I/O.
 
 
-def read_image(path_or_url: _Path,
-               *,
-               apply_exif_transpose: bool = True,
-               dtype: _DTypeLike = None) -> _NDArray:
+def read_image(
+    path_or_url: _Path,
+    *,
+    apply_exif_transpose: bool = True,
+    dtype: _DTypeLike = None,
+) -> _NDArray:
   """Returns an image read from a file path or URL.
 
   Decoding is performed using `PIL`, which supports `uint8` images with 1, 3,
@@ -692,10 +721,9 @@ def read_image(path_or_url: _Path,
   return decompress_image(data, dtype, apply_exif_transpose)
 
 
-def write_image(path: _Path,
-                image: _ArrayLike,
-                fmt: str = 'png',
-                **kwargs: Any) -> None:
+def write_image(
+    path: _Path, image: _ArrayLike, fmt: str = 'png', **kwargs: Any
+) -> None:
   """Writes an image to a file.
 
   Encoding is performed using `PIL`, which supports `uint8` images with 1, 3,
@@ -762,10 +790,9 @@ def to_rgb(
   return a
 
 
-def compress_image(image: _ArrayLike,
-                   *,
-                   fmt: str = 'png',
-                   **kwargs: Any) -> bytes:
+def compress_image(
+    image: _ArrayLike, *, fmt: str = 'png', **kwargs: Any
+) -> bytes:
   """Returns a buffer containing a compressed image.
 
   Args:
@@ -780,9 +807,9 @@ def compress_image(image: _ArrayLike,
     return output.getvalue()
 
 
-def decompress_image(data: bytes,
-                     dtype: _DTypeLike = None,
-                     apply_exif_transpose: bool = True) -> _NDArray:
+def decompress_image(
+    data: bytes, dtype: _DTypeLike = None, apply_exif_transpose: bool = True
+) -> _NDArray:
   """Returns an image from a compressed data buffer.
 
   Decoding is performed using `PIL`, which supports `uint8` images with 1, 3,
@@ -802,14 +829,16 @@ def decompress_image(data: bytes,
   return np.array(pil_image, dtype=dtype)
 
 
-def html_from_compressed_image(data: bytes,
-                               width: int,
-                               height: int,
-                               *,
-                               title: str | None = None,
-                               border: bool | str = False,
-                               pixelated: bool = True,
-                               fmt: str = 'png') -> str:
+def html_from_compressed_image(
+    data: bytes,
+    width: int,
+    height: int,
+    *,
+    title: str | None = None,
+    border: bool | str = False,
+    pixelated: bool = True,
+    fmt: str = 'png',
+) -> str:
   """Returns an HTML string with an image tag containing encoded data.
 
   Args:
@@ -823,12 +852,19 @@ def html_from_compressed_image(data: bytes,
     fmt: Compression encoding.
   """
   b64 = base64.b64encode(data).decode('utf-8')
-  border = (f'{border}; ' if isinstance(border, str) else
-            'border:1px solid black; ' if border else '')
+  border = (
+      f'{border}; '  # pylint: disable=g-long-ternary
+      if isinstance(border, str)
+      else 'border:1px solid black; '
+      if border
+      else ''
+  )
   s_pixelated = 'pixelated' if pixelated else 'auto'
-  s = (f'<img width="{width}" height="{height}"'
-       f' style="{border}image-rendering:{s_pixelated}; object-fit:cover;"'
-       f' src="data:image/{fmt};base64,{b64}"/>')
+  s = (
+      f'<img width="{width}" height="{height}"'
+      f' style="{border}image-rendering:{s_pixelated}; object-fit:cover;"'
+      f' src="data:image/{fmt};base64,{b64}"/>'
+  )
   if title:
     s = f"""<div style="display:flex; align-items:left;">
       <div style="display:flex; flex-direction:column; align-items:center;">
@@ -836,8 +872,9 @@ def html_from_compressed_image(data: bytes,
   return s
 
 
-def _get_width_height(width: int | None, height: int | None,
-                      shape: tuple[int, int]) -> tuple[int, int]:
+def _get_width_height(
+    width: int | None, height: int | None, shape: tuple[int, int]
+) -> tuple[int, int]:
   """Returns (width, height) given optional parameters and image shape."""
   assert len(shape) == 2, shape
   if width and height:
@@ -849,10 +886,9 @@ def _get_width_height(width: int | None, height: int | None,
   return shape[::-1]
 
 
-def show_image(image: _ArrayLike,
-               *,
-               title: str | None = None,
-               **kwargs: Any) -> str | None:
+def show_image(
+    image: _ArrayLike, *, title: str | None = None, **kwargs: Any
+) -> str | None:
   """Displays an image in the notebook and optionally saves it to a file.
 
   See `show_images`.
@@ -936,15 +972,20 @@ def show_images(
     list_images = list(images)
     list_titles = [None] * len(list_images) if titles is None else list(titles)
     if len(list_images) != len(list_titles):
-      raise ValueError('Number of images does not match number of titles'
-                       f' ({len(list_images)} vs {len(list_titles)}).')
+      raise ValueError(
+          'Number of images does not match number of titles'
+          f' ({len(list_images)} vs {len(list_titles)}).'
+      )
 
   def ensure_mapped_to_rgb(image: _ArrayLike) -> _NDArray:
     image = _as_valid_media_array(image)
-    if not (image.ndim == 2 or
-            (image.ndim == 3 and image.shape[2] in (1, 3, 4))):
-      raise ValueError(f'Image with shape {image.shape} is neither a 2D array'
-                       ' nor a 3D array with 1, 3, or 4 channels.')
+    if not (
+        image.ndim == 2 or (image.ndim == 3 and image.shape[2] in (1, 3, 4))
+    ):
+      raise ValueError(
+          f'Image with shape {image.shape} is neither a 2D array'
+          ' nor a 3D array with 1, 3, or 4 channels.'
+      )
     if image.ndim == 3 and image.shape[2] == 1:
       image = image[:, :, 0]
     if image.ndim == 2:
@@ -978,7 +1019,9 @@ def show_images(
       pixelated2 = pixelated if pixelated is not None else magnified
       html_strings.append(
           html_from_compressed_image(
-              png_data, w, h, title=title, border=border, pixelated=pixelated2))
+              png_data, w, h, title=title, border=border, pixelated=pixelated2
+          )
+      )
     # Create single-row tables each with no more than 'columns' elements.
     table_strings = []
     for row_html_strings in _chunked(html_strings, columns):
@@ -987,8 +1030,10 @@ def show_images(
       if ylabel:
         style = 'writing-mode:vertical-lr; transform:rotate(180deg);'
         s = f'{td}<span style="{style}">{ylabel}</span></td>' + s
-      table_strings.append(f'<table class="{html_class}"'
-                           f' style="border-spacing:0px;"><tr>{s}</tr></table>')
+      table_strings.append(
+          f'<table class="{html_class}"'
+          f' style="border-spacing:0px;"><tr>{s}</tr></table>'
+      )
     return ''.join(table_strings)
 
   s = html_from_compressed_images()
@@ -998,7 +1043,7 @@ def show_images(
     s = html_from_compressed_images()
   if return_html:
     return s
-  IPython.display.display(IPython.display.HTML(s))
+  _display_html(s)
   return None
 
 
@@ -1014,7 +1059,8 @@ def _get_ffmpeg_path() -> str:
   if not path:
     raise RuntimeError(
         f"Program '{_config.ffmpeg_name_or_path}' is not found;"
-        " perhaps install ffmpeg using 'apt-get install ffmpeg'.")
+        " perhaps install ffmpeg using 'apt install ffmpeg'."
+    )
   return path
 
 
@@ -1038,6 +1084,7 @@ class VideoMetadata(typing.NamedTuple):
     bps: The estimated bitrate of the video stream in bits per second, retrieved
       from the video header.
   """
+
   num_images: int
   shape: tuple[int, int]
   fps: float
@@ -1062,7 +1109,8 @@ def _get_video_metadata(path: _Path) -> VideoMetadata:
       '-',
   ]
   with subprocess.Popen(
-      command, stderr=subprocess.PIPE, encoding='utf-8') as proc:
+      command, stderr=subprocess.PIPE, encoding='utf-8'
+  ) as proc:
     _, err = proc.communicate()
   bps = num_images = width = rotation = None
   for line in err.split('\n'):
@@ -1144,6 +1192,7 @@ class VideoReader(_VideoIO):
     bps: The estimated bitrate of the video stream in bits per second, retrieved
       from the video header.
   """
+
   path_or_url: _Path
   output_format: str
   dtype: _DType
@@ -1154,14 +1203,17 @@ class VideoReader(_VideoIO):
   bps: int | None
   _num_bytes_per_image: int
 
-  def __init__(self,
-               path_or_url: _Path,
-               *,
-               output_format: str = 'rgb',
-               dtype: _DTypeLike = np.uint8):
+  def __init__(
+      self,
+      path_or_url: _Path,
+      *,
+      output_format: str = 'rgb',
+      dtype: _DTypeLike = np.uint8,
+  ):
     if output_format not in {'rgb', 'yuv', 'gray'}:
       raise ValueError(
-          f'Output format {output_format} is not rgb, yuv, or gray.')
+          f'Output format {output_format} is not rgb, yuv, or gray.'
+      )
     self.path_or_url = path_or_url
     self.output_format = output_format
     self.dtype = np.dtype(dtype)
@@ -1184,7 +1236,8 @@ class VideoReader(_VideoIO):
       num_channels = {'rgb': 3, 'yuv': 3, 'gray': 1}[self.output_format]
       bytes_per_channel = self.dtype.itemsize
       self._num_bytes_per_image = (
-          math.prod(self.shape) * num_channels * bytes_per_channel)
+          math.prod(self.shape) * num_channels * bytes_per_channel
+      )
 
       command = [
           ffmpeg_path,
@@ -1204,7 +1257,8 @@ class VideoReader(_VideoIO):
           '-',
       ]
       self._popen = subprocess.Popen(
-          command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+          command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+      )
       self._proc = self._popen.__enter__()
     except Exception:
       self.__exit__(None, None, None)
@@ -1304,20 +1358,22 @@ class VideoWriter(_VideoIO):
       'yuv420p' if all shape dimensions are even, else 'yuv444p'.
   """
 
-  def __init__(self,
-               path: _Path,
-               shape: tuple[int, int],
-               *,
-               codec: str = 'h264',
-               metadata: VideoMetadata | None = None,
-               fps: float | None = None,
-               bps: int | None = None,
-               qp: int | None = None,
-               crf: float | None = None,
-               ffmpeg_args: str | Sequence[str] = '',
-               input_format: str = 'rgb',
-               dtype: _DTypeLike = np.uint8,
-               encoded_format: str | None = None) -> None:
+  def __init__(
+      self,
+      path: _Path,
+      shape: tuple[int, int],
+      *,
+      codec: str = 'h264',
+      metadata: VideoMetadata | None = None,
+      fps: float | None = None,
+      bps: int | None = None,
+      qp: int | None = None,
+      crf: float | None = None,
+      ffmpeg_args: str | Sequence[str] = '',
+      input_format: str = 'rgb',
+      dtype: _DTypeLike = np.uint8,
+      encoded_format: str | None = None,
+  ) -> None:
     _check_2d_shape(shape)
     if fps is None and metadata:
       fps = metadata.fps
@@ -1332,14 +1388,18 @@ class VideoWriter(_VideoIO):
       raise ValueError(f'Bitrate value {bps} is invalid.')
     if qp is not None and (not isinstance(qp, int) or qp <= 0):
       raise ValueError(
-          f'Quantization parameter {qp} is not a positive integer.')
+          f'Quantization parameter {qp} is not a positive integer.'
+      )
     num_rate_specifications = sum(x is not None for x in (bps, qp, crf))
     if num_rate_specifications > 1:
       raise ValueError(
-          f'Must specify at most one of bps, qp, or crf ({bps}, {qp}, {crf}).')
+          f'Must specify at most one of bps, qp, or crf ({bps}, {qp}, {crf}).'
+      )
     ffmpeg_args = (
         shlex.split(ffmpeg_args)
-        if isinstance(ffmpeg_args, str) else list(ffmpeg_args))
+        if isinstance(ffmpeg_args, str)
+        else list(ffmpeg_args)
+    )
     if input_format not in {'rgb', 'yuv', 'gray'}:
       raise ValueError(f'Input format {input_format} is not rgb, yuv, or gray.')
     dtype = np.dtype(dtype)
@@ -1351,10 +1411,12 @@ class VideoWriter(_VideoIO):
     if encoded_format is None:
       encoded_format = 'yuv420p' if all_dimensions_are_even else 'yuv444p'
     if not all_dimensions_are_even and encoded_format.startswith(
-        ('yuv42', 'yuvj42')):
+        ('yuv42', 'yuvj42')
+    ):
       raise ValueError(
           f'With encoded_format {encoded_format}, video dimensions must be'
-          f' even, but shape is {shape}.')
+          f' even, but shape is {shape}.'
+      )
     self.fps = fps
     self.codec = codec
     self.bps = bps
@@ -1367,9 +1429,10 @@ class VideoWriter(_VideoIO):
     if num_rate_specifications == 0 and not ffmpeg_args:
       qp = 20 if math.prod(self.shape) <= 640 * 480 else 28
     self._bitrate_args = (
-        (['-vb', f'{bps}'] if bps is not None else []) +
-        (['-qp', f'{qp}'] if qp is not None else []) +
-        (['-vb', '0', '-crf', f'{crf}'] if crf is not None else []))
+        (['-vb', f'{bps}'] if bps is not None else [])
+        + (['-qp', f'{qp}'] if qp is not None else [])
+        + (['-vb', '0', '-crf', f'{crf}'] if crf is not None else [])
+    )
     if self.codec == 'gif':
       if self.path.suffix != '.gif':
         raise ValueError(f"File '{self.path}' does not have a .gif suffix.")
@@ -1395,30 +1458,36 @@ class VideoWriter(_VideoIO):
       # Writing to stdout using ('-f', 'mp4', '-') would require
       # ('-movflags', 'frag_keyframe+empty_moov') and the result is nonportable.
       height, width = self.shape
-      command = [
-          ffmpeg_path,
-          '-v',
-          'error',
-          '-f',
-          'rawvideo',
-          '-vcodec',
-          'rawvideo',
-          '-pix_fmt',
-          input_pix_fmt,
-          '-s',
-          f'{width}x{height}',
-          '-r',
-          f'{self.fps}',
-          '-i',
-          '-',
-          '-an',
-          '-vcodec',
-          self.codec,
-          '-pix_fmt',
-          self.encoded_format,
-      ] + self._bitrate_args + self.ffmpeg_args + ['-y', tmp_name]
+      command = (
+          [
+              ffmpeg_path,
+              '-v',
+              'error',
+              '-f',
+              'rawvideo',
+              '-vcodec',
+              'rawvideo',
+              '-pix_fmt',
+              input_pix_fmt,
+              '-s',
+              f'{width}x{height}',
+              '-r',
+              f'{self.fps}',
+              '-i',
+              '-',
+              '-an',
+              '-vcodec',
+              self.codec,
+              '-pix_fmt',
+              self.encoded_format,
+          ]
+          + self._bitrate_args
+          + self.ffmpeg_args
+          + ['-y', tmp_name]
+      )
       self._popen = subprocess.Popen(
-          command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+          command, stdin=subprocess.PIPE, stderr=subprocess.PIPE
+      )
       self._proc = self._popen.__enter__()
     except Exception:
       self.__exit__(None, None, None)
@@ -1456,8 +1525,10 @@ class VideoWriter(_VideoIO):
       if not (image.ndim == 3 and image.shape[2] == 3):
         raise ValueError(f'Image dimensions {image.shape} are invalid.')
     if image.shape[:2] != self.shape:
-      raise ValueError(f'Image dimensions {image.shape[:2]} do not match'
-                       f' those of the initialized video {self.shape}.')
+      raise ValueError(
+          f'Image dimensions {image.shape[:2]} do not match'
+          f' those of the initialized video {self.shape}.'
+      )
     if self.input_format == 'yuv':  # Convert from per-pixel YUV to planar YUV.
       image = np.moveaxis(image, 2, 0)
     data = image.tobytes()
@@ -1490,9 +1561,11 @@ class _VideoArray(npt.NDArray[Any]):
 
   metadata: VideoMetadata | None
 
-  def __new__(cls: typing.Type['_VideoArray'],
-              input_array: _NDArray,
-              metadata: VideoMetadata | None = None) -> '_VideoArray':
+  def __new__(
+      cls: typing.Type['_VideoArray'],
+      input_array: _NDArray,
+      metadata: VideoMetadata | None = None,
+  ) -> '_VideoArray':
     obj: _VideoArray = np.asarray(input_array).view(cls)
     obj.metadata = metadata
     return obj
@@ -1554,10 +1627,9 @@ def write_video(path: _Path, images: Iterable[_NDArray], **kwargs: Any) -> None:
       writer.add_image(image)
 
 
-def compress_video(images: Iterable[_NDArray],
-                   *,
-                   codec: str = 'h264',
-                   **kwargs: Any) -> bytes:
+def compress_video(
+    images: Iterable[_NDArray], *, codec: str = 'h264', **kwargs: Any
+) -> bytes:
   """Returns a buffer containing a compressed video.
 
   The video container is 'mp4' except when `codec` is 'gif'.
@@ -1592,14 +1664,16 @@ def decompress_video(data: bytes, **kwargs: Any) -> _NDArray:
     return read_video(tmp_path, **kwargs)
 
 
-def html_from_compressed_video(data: bytes,
-                               width: int,
-                               height: int,
-                               *,
-                               title: str | None = None,
-                               border: bool | str = False,
-                               loop: bool = True,
-                               autoplay: bool = True) -> str:
+def html_from_compressed_video(
+    data: bytes,
+    width: int,
+    height: int,
+    *,
+    title: str | None = None,
+    border: bool | str = False,
+    loop: bool = True,
+    autoplay: bool = True,
+) -> str:
   """Returns an HTML string with a video tag containing H264-encoded data.
 
   Args:
@@ -1613,11 +1687,18 @@ def html_from_compressed_video(data: bytes,
     autoplay: If True, video playback starts without having to click.
   """
   b64 = base64.b64encode(data).decode('utf-8')
-  border = (f'{border}; ' if isinstance(border, str) else
-            'border:1px solid black; ' if border else '')
-  options = (f'controls width="{width}" height="{height}"'
-             f' style="{border}object-fit:cover;"'
-             f"{' loop' if loop else ''}{' autoplay' if autoplay else ''}")
+  border = (
+      f'{border}; '  # pylint: disable=g-long-ternary
+      if isinstance(border, str)
+      else 'border:1px solid black; '
+      if border
+      else ''
+  )
+  options = (
+      f'controls width="{width}" height="{height}"'
+      f' style="{border}object-fit:cover;"'
+      f"{' loop' if loop else ''}{' autoplay' if autoplay else ''}"
+  )
   s = f"""<video {options}>
       <source src="data:video/mp4;base64,{b64}" type="video/mp4"/>
       This browser does not support the video tag.
@@ -1629,10 +1710,9 @@ def html_from_compressed_video(data: bytes,
   return s
 
 
-def show_video(images: Iterable[_NDArray],
-               *,
-               title: str | None = None,
-               **kwargs: Any) -> str | None:
+def show_video(
+    images: Iterable[_NDArray], *, title: str | None = None, **kwargs: Any
+) -> str | None:
   """Displays a video in the IPython notebook and optionally saves it to a file.
 
   See `show_videos`.
@@ -1711,15 +1791,18 @@ def show_videos(
   if isinstance(videos, Mapping):
     if titles is not None:
       raise ValueError(
-          'Cannot have both a video dictionary and a titles parameter.')
+          'Cannot have both a video dictionary and a titles parameter.'
+      )
     list_titles = list(videos.keys())
     list_videos: list[Iterable[_NDArray]] = list(videos.values())
   else:
     list_videos = list(videos)
     list_titles = [None] * len(list_videos) if titles is None else list(titles)
     if len(list_videos) != len(list_titles):
-      raise ValueError('Number of videos does not match number of titles'
-                       f' ({len(list_videos)} vs {len(list_titles)}).')
+      raise ValueError(
+          'Number of videos does not match number of titles'
+          f' ({len(list_videos)} vs {len(list_titles)}).'
+      )
   if codec not in {'h264', 'gif'}:
     raise ValueError(f'Codec {codec} is neither h264 or gif.')
 
@@ -1727,14 +1810,16 @@ def show_videos(
   for video, title in zip(list_videos, list_titles):
     metadata: VideoMetadata | None = getattr(video, 'metadata', None)
     first_image, video = _peek_first(video)
-    w, h = _get_width_height(width, height,
-                             first_image.shape[:2])  # type: ignore[arg-type]
+    w, h = _get_width_height(
+        width, height, first_image.shape[:2]  # type: ignore[arg-type]
+    )
     if downsample and (w < first_image.shape[1] or h < first_image.shape[0]):  # pytype: disable=attribute-error
       # Not resize_video() because each image may have different depth and type.
       video = [resize_image(image, (h, w)) for image in video]
       first_image = video[0]
     data = compress_video(
-        video, metadata=metadata, fps=fps, bps=bps, qp=qp, codec=codec)
+        video, metadata=metadata, fps=fps, bps=bps, qp=qp, codec=codec
+    )
     if title and _config.show_save_dir:
       suffix = _filename_suffix_from_codec(codec)
       path = pathlib.Path(_config.show_save_dir) / f'{title}{suffix}'
@@ -1743,10 +1828,12 @@ def show_videos(
     if codec == 'gif':
       pixelated = h > first_image.shape[0] or w > first_image.shape[1]  # pytype: disable=attribute-error
       html_string = html_from_compressed_image(
-          data, w, h, title=title, fmt='gif', pixelated=pixelated, **kwargs)
+          data, w, h, title=title, fmt='gif', pixelated=pixelated, **kwargs
+      )
     else:
       html_string = html_from_compressed_video(
-          data, w, h, title=title, **kwargs)
+          data, w, h, title=title, **kwargs
+      )
     html_strings.append(html_string)
 
   # Create single-row tables each with no more than 'columns' elements.
@@ -1757,10 +1844,17 @@ def show_videos(
     if ylabel:
       style = 'writing-mode:vertical-lr; transform:rotate(180deg);'
       s = f'{td}<span style="{style}">{ylabel}</span></td>' + s
-    table_strings.append(f'<table class="{html_class}"'
-                         f' style="border-spacing:0px;"><tr>{s}</tr></table>')
+    table_strings.append(
+        f'<table class="{html_class}"'
+        f' style="border-spacing:0px;"><tr>{s}</tr></table>'
+    )
   s = ''.join(table_strings)
   if return_html:
     return s
-  IPython.display.display(IPython.display.HTML(s))
+  _display_html(s)
   return None
+
+
+# Local Variables:
+# fill-column: 88
+# End:

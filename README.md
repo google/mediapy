@@ -92,7 +92,7 @@ Video I/O relies on the external program `ffmpeg`, which must be present in
 the system PATH.  On Unix, it can be installed using:
 
 ```shell
-    apt-get install ffmpeg
+    apt install ffmpeg
 ```
 
 or within a notebook using:

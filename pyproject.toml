@@ -37,9 +37,10 @@ repository = "https://github.com/google/mediapy"
 # Installed through `pip install .[dev]`
 dev = [
     "absl-py",
+    "pyink",
+    "pylint>=2.6.0",
     "pytest",
     "pytest-xdist",
-    "pylint>=2.6.0",
 ]
 
 [build-system]
@@ -49,7 +50,7 @@ build-backend = "flit_core.buildapi"
 [tool.autopep8]
 indent_size = 2
 max_line_length = 80
-ignore = "E121,E125,E126,E129,E226,E302,E305,E501,W504,E741"
+ignore = "E121,E125,E126,E129,E226,E302,E305,E501,W504,E741,W503"
 aggressive = 3
 recursive = true
 
@@ -61,11 +62,21 @@ ignore_missing_imports = true
 module = "mediapy_test"
 ignore_errors = true
 
+[tool.pyink]
+# Formatting configuration to follow Google style-guide.
+line-length = 80
+preview = true
+pyink-indentation = 2
+pyink-use-majority-quotes = true
+# Ignore both *.ipynb and .ipynb_checkpoints/.
+extend-exclude = "\\.ipynb"
+
 [tool.pylint.main]
 disable = [
     "unspecified-encoding", "line-too-long", "too-many-lines",
     "too-few-public-methods", "too-many-locals", "too-many-instance-attributes",
     "too-many-branches", "too-many-statements", "using-constant-test",
+    "wrong-import-order",
 ]
 reports = false
 score = false
