@@ -21,9 +21,8 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Set up ffmpeg
-      uses: FedericoCarboni/setup-ffmpeg@v2
-      id: setup-ffmpeg
+    - run: sudo apt update
+    - run: sudo apt install -y ffmpeg
 
     # Install deps
     - name: Set up Python ${{ matrix.python-version }}
