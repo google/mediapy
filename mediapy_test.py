@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Tests for package mediapy."""
 
 import io
@@ -24,17 +25,21 @@ from absl.testing import absltest
 from absl.testing import parameterized
 import IPython
 import matplotlib
-import numpy as np
-
 import mediapy as media
+import numpy as np
 
 # pylint: disable=missing-function-docstring, protected-access
 # pylint: disable=too-many-public-methods
 
 _TEST_TYPES = ['uint8', 'uint16', 'uint32', 'float32', 'float64']
 _TEST_SHAPES1 = [(13, 21, 3), (14, 38, 2), (16, 21, 1), (18, 20), (17, 19)]
-_TEST_SHAPES2 = [(128, 128, 3), (128, 160, 1), (160, 128), (64, 64, 3),
-                 (64, 64)]
+_TEST_SHAPES2 = [
+    (128, 128, 3),
+    (128, 160, 1),
+    (160, 128),
+    (64, 64, 3),
+    (64, 64),
+]
 
 
 def _rms_diff(a, b) -> float:
@@ -109,7 +114,6 @@ class MediapyTest(parameterized.TestCase):
       self.assertEqual(mock_stdout.getvalue(), '39\n')
 
   def test_to_type(self):
-
     def check(src, dtype, expected):
       output = media.to_type(src, dtype)
       self.assertEqual(output.dtype.type, np.dtype(dtype).type)
@@ -171,7 +175,8 @@ class MediapyTest(parameterized.TestCase):
         uint32=4294967295,
         uint64=18446744073709551615,
         float32=1.0,
-        float64=1.0)
+        float64=1.0,
+    )
     for src_dtype in types + ['bool']:
       for dst_dtype in types:
         for shape in [(), (1,), (2, 2)]:
@@ -188,10 +193,12 @@ class MediapyTest(parameterized.TestCase):
   def test_to_float01(self):
     self.assert_all_close(
         media.to_float01(np.array([0, 1, 128, 254, 255], dtype=np.uint8)),
-        [0 / 255, 1 / 255, 128 / 255, 254 / 255, 255 / 255])
+        [0 / 255, 1 / 255, 128 / 255, 254 / 255, 255 / 255],
+    )
     self.assert_all_close(
         media.to_float01(np.array([0, 1, 128, 254, 65535], dtype=np.uint16)),
-        [0 / 65535, 1 / 65535, 128 / 65535, 254 / 65535, 65535 / 65535])
+        [0 / 65535, 1 / 65535, 128 / 65535, 254 / 65535, 65535 / 65535],
+    )
     a = np.array([0.0, 0.1, 0.5, 0.9, 1.0])
     self.assertIs(media.to_float01(a), a)
     a = np.array([0.0, 0.1, 0.5, 0.9, 1.0], dtype=np.float32)
@@ -200,43 +207,49 @@ class MediapyTest(parameterized.TestCase):
   def test_to_uint8(self):
     self.assert_all_equal(
         media.to_uint8(np.array([0, 1, 128, 254, 255], dtype=np.uint8)),
-        [0, 1, 128, 254, 255])
+        [0, 1, 128, 254, 255],
+    )
     self.assert_all_close(
-        media.to_uint8([-0.2, 0.0, 0.1, 0.5, 0.9, 1.0, 1.1]), [
-            0, 0,
+        media.to_uint8([-0.2, 0.0, 0.1, 0.5, 0.9, 1.0, 1.1]),
+        [
+            0,
+            0,
             int(0.1 * 255 + 0.5),
             int(0.5 * 255 + 0.5),
-            int(0.9 * 255 + 0.5), 255, 255
-        ])
+            int(0.9 * 255 + 0.5),
+            255,
+            255,
+        ],
+    )
 
   def test_color_ramp_float(self):
     shape = (2, 3)
     image = media.color_ramp(shape=shape)
     self.assert_all_equal(image.shape[:2], shape)
-    self.assert_all_close(image, [
+    self.assert_all_close(
+        image,
         [
-            [0.5 / shape[0], 0.5 / shape[1], 0.0],
-            [0.5 / shape[0], 1.5 / shape[1], 0.0],
-            [0.5 / shape[0], 2.5 / shape[1], 0.0],
+            [
+                [0.5 / shape[0], 0.5 / shape[1], 0.0],
+                [0.5 / shape[0], 1.5 / shape[1], 0.0],
+                [0.5 / shape[0], 2.5 / shape[1], 0.0],
+            ],
+            [
+                [1.5 / shape[0], 0.5 / shape[1], 0.0],
+                [1.5 / shape[0], 1.5 / shape[1], 0.0],
+                [1.5 / shape[0], 2.5 / shape[1], 0.0],
+            ],
         ],
-        [
-            [1.5 / shape[0], 0.5 / shape[1], 0.0],
-            [1.5 / shape[0], 1.5 / shape[1], 0.0],
-            [1.5 / shape[0], 2.5 / shape[1], 0.0],
-        ],
-    ])
+    )
 
   def test_color_ramp_uint8(self):
     shape = (1, 3)
     image = media.color_ramp(shape=shape, dtype=np.uint8)
     self.assert_all_equal(image.shape[:2], shape)
     expected = [[
-        [int(0.5 / shape[0] * 255 + 0.5),
-         int(0.5 / shape[1] * 255 + 0.5), 0],
-        [int(0.5 / shape[0] * 255 + 0.5),
-         int(1.5 / shape[1] * 255 + 0.5), 0],
-        [int(0.5 / shape[0] * 255 + 0.5),
-         int(2.5 / shape[1] * 255 + 0.5), 0],
+        [int(0.5 / shape[0] * 255 + 0.5), int(0.5 / shape[1] * 255 + 0.5), 0],
+        [int(0.5 / shape[0] * 255 + 0.5), int(1.5 / shape[1] * 255 + 0.5), 0],
+        [int(0.5 / shape[0] * 255 + 0.5), int(2.5 / shape[1] * 255 + 0.5), 0],
     ]]
     self.assert_all_equal(image, expected)
 
@@ -250,23 +263,44 @@ class MediapyTest(parameterized.TestCase):
 
   def test_rgb_yuv_roundtrip(self):
     image = np.array(
-        [[0, 0, 0], [255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0],
-         [0, 255, 255], [255, 0, 255], [255, 255, 255], [128, 128, 128]],
-        dtype=np.uint8)
+        [
+            [0, 0, 0],
+            [255, 0, 0],
+            [0, 255, 0],
+            [0, 0, 255],
+            [255, 255, 0],
+            [0, 255, 255],
+            [255, 0, 255],
+            [255, 255, 255],
+            [128, 128, 128],
+        ],
+        dtype=np.uint8,
+    )
     new = media.to_uint8(media.rgb_from_yuv(media.yuv_from_rgb(image)))
     self.assert_all_close(image, new, atol=1)
 
   def test_rgb_ycbcr_roundtrip(self):
     image = np.array(
-        [[0, 0, 0], [255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0],
-         [0, 255, 255], [255, 0, 255], [255, 255, 255], [128, 128, 128]],
-        dtype=np.uint8)
+        [
+            [0, 0, 0],
+            [255, 0, 0],
+            [0, 255, 0],
+            [0, 0, 255],
+            [255, 255, 0],
+            [0, 255, 255],
+            [255, 0, 255],
+            [255, 255, 255],
+            [128, 128, 128],
+        ],
+        dtype=np.uint8,
+    )
     new = media.to_uint8(media.rgb_from_ycbcr(media.ycbcr_from_rgb(image)))
     self.assert_all_close(image, new, atol=1)
 
   def test_pil_image(self):
     im = media._pil_image(
-        np.array([[[10, 11, 12], [40, 41, 42]]], dtype=np.uint8))
+        np.array([[[10, 11, 12], [40, 41, 42]]], dtype=np.uint8)
+    )
     self.assertEqual(im.width, 2)
     self.assertEqual(im.height, 1)
     self.assertEqual(im.mode, 'RGB')
@@ -280,8 +314,11 @@ class MediapyTest(parameterized.TestCase):
 
     def create_image(shape):
       image = media.color_ramp(shape[:2], dtype=dtype)
-      return image.mean(
-          axis=-1).astype(dtype) if len(shape) == 2 else image[..., :shape[2]]
+      return (
+          image.mean(axis=-1).astype(dtype)
+          if len(shape) == 2
+          else image[..., : shape[2]]
+      )
 
     image = create_image(shape)
     self.assertEqual(image.dtype, dtype)
@@ -291,9 +328,8 @@ class MediapyTest(parameterized.TestCase):
     expected_image = create_image(new_shape)
     atol = 0.0 if new_shape == shape else 0.015
     self.assert_all_close(
-        media.to_float01(new_image),
-        media.to_float01(expected_image),
-        atol=atol)
+        media.to_float01(new_image), media.to_float01(expected_image), atol=atol
+    )
 
   @parameterized.parameters(zip(_TEST_TYPES, _TEST_SHAPES2))
   def test_resize_video(self, str_dtype, shape):
@@ -301,8 +337,11 @@ class MediapyTest(parameterized.TestCase):
 
     def create_video(shape, num_images=5):
       video = media.moving_circle(shape[:2], num_images, dtype=dtype)
-      return video.mean(
-          axis=-1).astype(dtype) if len(shape) == 2 else video[..., :shape[2]]
+      return (
+          video.mean(axis=-1).astype(dtype)
+          if len(shape) == 2
+          else video[..., : shape[2]]
+      )
 
     video = create_video(shape)
     self.assertEqual(video.dtype, dtype)
@@ -313,7 +352,8 @@ class MediapyTest(parameterized.TestCase):
     self._check_similar(
         media.to_float01(new_video),
         media.to_float01(expected_video),
-        max_rms=(0.0 if new_shape == shape else 0.07))
+        max_rms=(0.0 if new_shape == shape else 0.07),
+    )
 
   def test_read_contents(self):
     data = b'Test data'
@@ -361,7 +401,8 @@ class MediapyTest(parameterized.TestCase):
       return [x, x, x]
 
     self.assert_all_close(
-        media.to_rgb(a), [[
+        media.to_rgb(a),
+        [[
             gray_color(0.0 / 1.4),
             gray_color(0.2 / 1.4),
             gray_color(0.4 / 1.4),
@@ -369,9 +410,11 @@ class MediapyTest(parameterized.TestCase):
             gray_color(1.2 / 1.4),
             gray_color(1.4 / 1.4),
         ]],
-        atol=0.002)
+        atol=0.002,
+    )
     self.assert_all_close(
-        media.to_rgb(a, vmin=0.0, vmax=1.0), [[
+        media.to_rgb(a, vmin=0.0, vmax=1.0),
+        [[
             gray_color(0.0),
             gray_color(0.0),
             gray_color(0.2),
@@ -379,12 +422,14 @@ class MediapyTest(parameterized.TestCase):
             gray_color(1.0),
             gray_color(1.0),
         ]],
-        atol=0.002)
+        atol=0.002,
+    )
     a = np.array([-0.4, 0.0, 0.2])
     self.assert_all_close(
         media.to_rgb(a, vmin=-1.0, vmax=1.0, cmap='bwr'),
         [[0.596078, 0.596078, 1.0], [1.0, 0.996078, 0.996078], [1.0, 0.8, 0.8]],
-        atol=0.002)
+        atol=0.002,
+    )
 
   def test_uint8_to_rgb(self):
     a = np.array([100, 120, 140], dtype=np.uint8)
@@ -398,11 +443,14 @@ class MediapyTest(parameterized.TestCase):
 
     self.assert_all_close(media.to_rgb(a), gray([0.0, 0.5, 1.0]))
     self.assert_all_close(
-        media.to_rgb(a, vmin=80, vmax=160), gray([0.25, 0.5, 0.75]))
+        media.to_rgb(a, vmin=80, vmax=160), gray([0.25, 0.5, 0.75])
+    )
     self.assert_all_close(
-        media.to_rgb(a, vmin=110, vmax=160), gray([0.0, 0.2, 0.6]))
+        media.to_rgb(a, vmin=110, vmax=160), gray([0.0, 0.2, 0.6])
+    )
     self.assert_all_close(
-        media.to_rgb(a, vmin=110, vmax=130), gray([0.0, 0.5, 1.0]))
+        media.to_rgb(a, vmin=110, vmax=130), gray([0.0, 0.5, 1.0])
+    )
 
   @parameterized.parameters('uint8', 'uint16')
   def test_compress_decompress_image_roundtrip(self, dtype):
@@ -474,7 +522,8 @@ class MediapyTest(parameterized.TestCase):
     self.assertIsInstance(htmls[0], IPython.display.HTML)
     self.assertLen(re.findall('(?s)<img', htmls[0].data), 1)
     self.assertLen(
-        re.findall('(?s)image-rendering:pixelated', htmls[0].data), 1)
+        re.findall('(?s)image-rendering:pixelated', htmls[0].data), 1
+    )
     self.assertEmpty(re.findall('(?s)image-rendering:auto', htmls[0].data))
 
   def test_show_images_list(self):
@@ -489,10 +538,9 @@ class MediapyTest(parameterized.TestCase):
   def test_show_images_dict(self):
     htmls = []
     with mock.patch('IPython.display.display', htmls.append):
-      media.show_images({
-          'title1': media.color_ramp(),
-          'title2': media.color_ramp()
-      })
+      media.show_images(
+          {'title1': media.color_ramp(), 'title2': media.color_ramp()}
+      )
     self.assertLen(htmls, 1)
     self.assertIsInstance(htmls[0], IPython.display.HTML)
     self.assertLen(re.findall('(?s)<table', htmls[0].data), 1)
@@ -516,7 +564,8 @@ class MediapyTest(parameterized.TestCase):
     qp = 20
     original_video = media.to_uint8(media.moving_circle(shape, num_images))
     video = (
-        image for image in original_video) if use_generator else original_video
+        (image for image in original_video) if use_generator else original_video
+    )
     with tempfile.TemporaryDirectory() as directory_name:
       filename = os.path.join(directory_name, 'test.mp4')
       media.write_video(filename, video, fps=fps, qp=qp)
@@ -569,7 +618,8 @@ class MediapyTest(parameterized.TestCase):
             filename2,
             reader.shape,
             metadata=reader.metadata,
-            encoded_format='yuv420p') as writer:
+            encoded_format='yuv420p',
+        ) as writer:
           for image in reader:
             writer.add_image(image)
 
@@ -586,18 +636,22 @@ class MediapyTest(parameterized.TestCase):
     fps = 60
     bps = 40_000_000
     horizontal_gray_ramp = media.to_type(
-        np.indices(shape)[1] / shape[1], np.uint16)
+        np.indices(shape)[1] / shape[1], np.uint16
+    )
     video = np.broadcast_to(horizontal_gray_ramp, (num_images, *shape))
     with tempfile.TemporaryDirectory() as directory_name:
       filename = os.path.join(directory_name, 'test3.mp4')
       media.write_video(
-          filename, video, fps=fps, bps=bps, encoded_format='yuv420p10le')
+          filename, video, fps=fps, bps=bps, encoded_format='yuv420p10le'
+      )
       new_video = media.read_video(
-          filename, dtype=np.uint16, output_format='gray')
+          filename, dtype=np.uint16, output_format='gray'
+      )
     self.assertEqual(new_video.dtype, np.uint16)
     value_1_of_10bit_encoded_in_16bits = 64
     self._check_similar(
-        video, new_video, max_rms=value_1_of_10bit_encoded_in_16bits * 0.8)
+        video, new_video, max_rms=value_1_of_10bit_encoded_in_16bits * 0.8
+    )
 
   def test_video_read_write_vp9(self):
     video = media.moving_circle((256, 256), num_images=4, dtype=np.uint8)
@@ -633,10 +687,12 @@ class MediapyTest(parameterized.TestCase):
     shape = (240, 320)
     video = media.moving_circle(shape, 10)
     text = media.html_from_compressed_video(
-        media.compress_video(video), shape[1], shape[0])
+        media.compress_video(video), shape[1], shape[0]
+    )
     self.assertGreater(len(text), 2_000)
     self.assertContainsInOrder(
-        ['<video', '<source src="data', 'type="video/mp4"/>', '</video>'], text)
+        ['<video', '<source src="data', 'type="video/mp4"/>', '</video>'], text
+    )
 
   def test_show_video(self):
     htmls = []
@@ -742,3 +798,8 @@ class MediapyTest(parameterized.TestCase):
 
 if __name__ == '__main__':
   absltest.main()
+
+
+# Local Variables:
+# fill-column: 80
+# End:
