@@ -801,5 +801,5 @@ if __name__ == '__main__':
 
 
 # Local Variables:
-# fill-column: 88
+# fill-column: 80
 # End:
