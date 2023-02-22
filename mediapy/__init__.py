@@ -29,70 +29,70 @@ Colab**](https://colab.research.google.com/github/google/mediapy/blob/main/media
 
 Display an image (2D or 3D `numpy` array):
 ```python
-  checkerboard = np.kron([[0, 1] * 16, [1, 0] * 16] * 16, np.ones((4, 4)))
-  show_image(checkerboard)
+checkerboard = np.kron([[0, 1] * 16, [1, 0] * 16] * 16, np.ones((4, 4)))
+show_image(checkerboard)
 ```
 
 Read and display an image (either local or from the Web):
 ```python
-  IMAGE = 'https://github.com/hhoppe/data/raw/main/image.png'
-  show_image(read_image(IMAGE))
+IMAGE = 'https://github.com/hhoppe/data/raw/main/image.png'
+show_image(read_image(IMAGE))
 ```
 
 Read and display an image from a local file:
 ```python
-  !wget -q -O /tmp/burano.png {IMAGE}
-  show_image(read_image('/tmp/burano.png'))
+!wget -q -O /tmp/burano.png {IMAGE}
+show_image(read_image('/tmp/burano.png'))
 ```
 
 Show titled images side-by-side:
 ```python
-  images = {
-      'original': checkerboard,
-      'darkened': checkerboard * 0.7,
-      'random': np.random.rand(32, 32, 3),
-  }
-  show_images(images, vmin=0.0, vmax=1.0, border=True, height=64)
+images = {
+    'original': checkerboard,
+    'darkened': checkerboard * 0.7,
+    'random': np.random.rand(32, 32, 3),
+}
+show_images(images, vmin=0.0, vmax=1.0, border=True, height=64)
 ```
 
 ## Video examples
 
 Display a video (an iterable of images, e.g., a 3D or 4D array):
 ```python
-  video = moving_circle((100, 100), num_images=10)
-  show_video(video, fps=10)
+video = moving_circle((100, 100), num_images=10)
+show_video(video, fps=10)
 ```
 
 Show the video frames side-by-side:
 ```python
-  show_images(video, columns=6, border=True, height=64)
+show_images(video, columns=6, border=True, height=64)
 ```
 
 Show the frames with their indices:
 ```python
-  show_images({f'{i}': image for i, image in enumerate(video)}, width=32)
+show_images({f'{i}': image for i, image in enumerate(video)}, width=32)
 ```
 
 Read and display a video (either local or from the Web):
 ```python
-  VIDEO = 'https://github.com/hhoppe/data/raw/main/video.mp4'
-  show_video(read_video(VIDEO))
+VIDEO = 'https://github.com/hhoppe/data/raw/main/video.mp4'
+show_video(read_video(VIDEO))
 ```
 
 Create and display a looping two-frame GIF video:
 ```python
-  image1 = resize_image(np.random.rand(10, 10, 3), (50, 50))
-  show_video([image1, image1 * 0.8], fps=2, codec='gif')
+image1 = resize_image(np.random.rand(10, 10, 3), (50, 50))
+show_video([image1, image1 * 0.8], fps=2, codec='gif')
 ```
 
 Darken a video frame-by-frame:
 ```python
-  output_path = '/tmp/out.mp4'
-  with VideoReader(VIDEO) as r:
-    darken_image = lambda image: to_float01(image) * 0.5
-    with VideoWriter(output_path, shape=r.shape, fps=r.fps, bps=r.bps) as w:
-      for image in r:
-        w.add_image(darken_image(image))
+output_path = '/tmp/out.mp4'
+with VideoReader(VIDEO) as r:
+  darken_image = lambda image: to_float01(image) * 0.5
+  with VideoWriter(output_path, shape=r.shape, fps=r.fps, bps=r.bps) as w:
+    for image in r:
+      w.add_image(darken_image(image))
 ```
 """
 
@@ -133,14 +133,51 @@ import PIL.ImageOps
 if not hasattr(PIL.Image, 'Resampling'):  # Allow Pillow<9.0.
   PIL.Image.Resampling = PIL.Image
 
-_ArrayLike = npt.ArrayLike
-_DTypeLike = npt.DTypeLike
+# Selected and reordered here for pdoc documentation.
+__all__ = [
+    'show_image',
+    'show_images',
+    'show_video',
+    'show_videos',
+    'read_image',
+    'write_image',
+    'read_video',
+    'write_video',
+    'VideoReader',
+    'VideoWriter',
+    'VideoMetadata',
+    'compress_image',
+    'decompress_image',
+    'compress_video',
+    'decompress_video',
+    'html_from_compressed_image',
+    'html_from_compressed_video',
+    'resize_image',
+    'resize_video',
+    'to_rgb',
+    'to_type',
+    'to_float01',
+    'to_uint8',
+    'set_output_height',
+    'set_max_output_height',
+    'color_ramp',
+    'moving_circle',
+    'set_show_save_dir',
+    'set_ffmpeg',
+    'video_is_available',
+]
+
 if typing.TYPE_CHECKING:
+  _ArrayLike = npt.ArrayLike
+  _DTypeLike = npt.DTypeLike
   _NDArray = np.ndarray[Any, Any]
   _DType = np.dtype[Any]
 else:
-  _NDArray = Any
-  _DType = Any
+  # Create named types for use in the `pdoc` documentation.
+  _ArrayLike = typing.TypeVar('_ArrayLike')
+  _DTypeLike = typing.TypeVar('_DTypeLike')
+  _NDArray = typing.TypeVar('_NDArray')
+  _DType = typing.TypeVar('_DType')  # pylint: disable=invalid-name
 
 _IPYTHON_HTML_SIZE_LIMIT = 20_000_000
 _T = typing.TypeVar('_T')
@@ -852,13 +889,12 @@ def html_from_compressed_image(
     fmt: Compression encoding.
   """
   b64 = base64.b64encode(data).decode('utf-8')
-  border = (
-      f'{border}; '  # pylint: disable=g-long-ternary
-      if isinstance(border, str)
-      else 'border:1px solid black; '
-      if border
-      else ''
-  )
+  if isinstance(border, str):
+    border = f'{border}; '
+  elif border:
+    border = 'border:1px solid black; '
+  else:
+    border = ''
   s_pixelated = 'pixelated' if pixelated else 'auto'
   s = (
       f'<img width="{width}" height="{height}"'
@@ -1176,12 +1212,12 @@ class VideoReader(_VideoIO):
 
   Attributes:
     path_or_url: Location of input video.
-    output_format: Format of output images (default 'rgb'): - 'rgb': Each image
-      has shape=(height, width, 3) with R, G, B values. - 'yuv': Each image has
-      shape=(height, width, 3) with Y, U, V values. - 'gray': Each image has
-      shape=(height, width).
-    dtype: Data type for output images: - np.uint8: Default. - np.uint16: Allows
-      reading 10-bit or 12-bit data without precision loss.
+    output_format: Format of output images (default 'rgb').  If 'rgb', each
+      image has shape=(height, width, 3) with R, G, B values.  If 'yuv', each
+      image has shape=(height, width, 3) with Y, U, V values.  If 'gray', each
+      image has shape=(height, width).
+    dtype: Data type for output images.  The default is `np.uint8`.  Use of
+      `np.uint16` allows reading 10-bit or 12-bit data without precision loss.
     metadata: Object storing the information retrieved from the video header.
       Its attributes are copied as attributes in this class.
     num_images: Number of frames that is expected from the video stream.  This
@@ -1345,13 +1381,13 @@ class VideoWriter(_VideoIO):
     crf: Constant rate factor for video compression quality (default None).
     ffmpeg_args: Additional arguments for `ffmpeg` command, e.g. '-g 30' to
       introduce I-frames, or '-bf 0' to omit B-frames.
-    input_format: Format of input images (default 'rgb'): - 'rgb': Each image
-      has shape=(height, width, 3) or (height, width). - 'yuv': Each image has
-      shape=(height, width, 3) with Y, U, V values. - 'gray': Each image has
+    input_format: Format of input images (default 'rgb').  If 'rgb', each image
+      has shape=(height, width, 3) or (height, width).  If 'yuv', each image has
+      shape=(height, width, 3) with Y, U, V values.  If 'gray', each image has
       shape=(height, width).
     dtype: Expected data type for input images (any float input images are
-      converted to `dtype`): - np.uint8: Default. - np.uint16: Necessary when
-      encoding >8 bits/channel.
+      converted to `dtype`).  The default is `np.uint8`.  Use of `np.uint16` is
+      necessary when encoding >8 bits/channel.
     encoded_format: Pixel format as defined by `ffmpeg -pix_fmts`, e.g.,
       'yuv420p' (2x2-subsampled chroma), 'yuv444p' (full-res chroma),
       'yuv420p10le' (10-bit per channel), etc.  The default (None) selects
@@ -1687,13 +1723,12 @@ def html_from_compressed_video(
     autoplay: If True, video playback starts without having to click.
   """
   b64 = base64.b64encode(data).decode('utf-8')
-  border = (
-      f'{border}; '  # pylint: disable=g-long-ternary
-      if isinstance(border, str)
-      else 'border:1px solid black; '
-      if border
-      else ''
-  )
+  if isinstance(border, str):
+    border = f'{border}; '
+  elif border:
+    border = 'border:1px solid black; '
+  else:
+    border = ''
   options = (
       f'controls width="{width}" height="{height}"'
       f' style="{border}object-fit:cover;"'
