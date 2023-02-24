@@ -1,0 +1,15 @@
+{% extends "default/module.html.jinja2" %}
+
+{# Override the macro determining whether names are listed in the pdoc documentation. #}
+{% macro is_public(doc) %}
+    {% if 0 %}
+
+    {# The next line(s) determine identifier names to omit from the pdoc documentation. #}
+    {% elif 'VideoMetadata.' in doc.qualname %}
+
+    {# Any other names are listed in the pdoc documentation. #}
+    {% else %}
+        {{ default_is_public(doc) }}
+
+    {% endif %}
+{% endmacro %}
