@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#!/usr/bin/env python3
 """Create HTML documentation from the source code using `pdoc`."""
-# Note: Invoke this script from the parent directory as "pdoc_files/make.py".
+# Note: Invoke this from the parent directory as "python3 pdoc_files/make.py".
 
 import pathlib
 import re
