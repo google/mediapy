@@ -53,7 +53,7 @@ def main() -> None:
 
   if APPLY_POSTPROCESS:
     output_file = OUTPUT_DIRECTORY / f'{MODULE_NAME}.html'
-    text = output_file.read_text()
+    text = output_file.read_text(encoding='utf-8')
 
     # collections.abc.* -> * (Iterable, Mapping, Callable, etc.).
     text = text.replace(
@@ -102,7 +102,7 @@ def main() -> None:
     )
     text = text.replace('~_NDType', 'np.dtype')
 
-    output_file.write_text(text)
+    output_file.write_text(text, encoding='utf-8')
 
 
 if __name__ == '__main__':

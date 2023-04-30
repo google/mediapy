@@ -1732,8 +1732,8 @@ def html_from_compressed_video(
   options = (
       f'controls width="{width}" height="{height}"'
       f' style="{border}object-fit:cover;"'
-      f"{' loop' if loop else ''}"
-      f"{' autoplay muted' if autoplay else ''}"
+      f'{" loop" if loop else ""}'
+      f'{" autoplay muted" if autoplay else ""}'
   )
   s = f"""<video {options}>
       <source src="data:video/mp4;base64,{b64}" type="video/mp4"/>
