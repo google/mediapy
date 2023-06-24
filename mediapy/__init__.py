@@ -1158,9 +1158,13 @@ def _get_video_metadata(path: _Path) -> VideoMetadata:
       if not (match := re.search(r', ([0-9]+)x([0-9]+)', line)):
         raise RuntimeError(f'Unable to parse video dimensions in line {line}')
       width, height = int(match.group(1)), int(match.group(2))
-      if not (match := re.search(r', ([0-9.]+) fps', line)):
+      if match := re.search(r', ([0-9.]+) fps', line):
+        fps = float(match.group(1))
+      elif str(path).endswith('.gif'):
+        # Some GIF files lack a framerate attribute; use a reasonable default.
+        fps = 10
+      else:
         raise RuntimeError(f'Unable to parse video framerate in line {line}')
-      fps = float(match.group(1))
     if match := re.fullmatch(r'\s*rotate\s*:\s*(\d+)', line):
       rotation = int(match.group(1))
   if not num_images:
