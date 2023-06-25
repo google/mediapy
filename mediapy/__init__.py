@@ -55,6 +55,11 @@ images = {
 show_images(images, vmin=0.0, vmax=1.0, border=True, height=64)
 ```
 
+Compare two images using an interactive slider:
+```python
+compare_images([checkerboard, np.random.rand(128, 128, 3)])
+```
+
 ## Video examples
 
 Display a video (an iterable of images, e.g., a 3D or 4D array):
@@ -137,6 +142,7 @@ if not hasattr(PIL.Image, 'Resampling'):  # Allow Pillow<9.0.
 __all__ = [
     'show_image',
     'show_images',
+    'compare_images',
     'show_video',
     'show_videos',
     'read_image',
@@ -182,6 +188,22 @@ else:
 _IPYTHON_HTML_SIZE_LIMIT = 20_000_000
 _T = typing.TypeVar('_T')
 _Path = typing.Union[str, os.PathLike]
+
+_IMAGE_COMPARISON_HTML = """\
+<script
+  defer
+  src="https://unpkg.com/img-comparison-slider@7/dist/index.js"
+></script>
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/img-comparison-slider@7/dist/styles.css"
+/>
+
+<img-comparison-slider>
+  <img slot="first" src="data:image/png;base64,{b64_1}" />
+  <img slot="second" src="data:image/png;base64,{b64_2}" />
+</img-comparison-slider>
+"""
 
 # ** Miscellaneous.
 
@@ -922,6 +944,26 @@ def _get_width_height(
   return shape[::-1]
 
 
+def _ensure_mapped_to_rgb(
+    image: _ArrayLike,
+    *,
+    vmin: float | None = None,
+    vmax: float | None = None,
+    cmap: str | Callable[[_ArrayLike], _NDArray] = 'gray',
+) -> _NDArray:
+  image = _as_valid_media_array(image)
+  if not (image.ndim == 2 or (image.ndim == 3 and image.shape[2] in (1, 3, 4))):
+    raise ValueError(
+        f'Image with shape {image.shape} is neither a 2D array'
+        ' nor a 3D array with 1, 3, or 4 channels.'
+    )
+  if image.ndim == 3 and image.shape[2] == 1:
+    image = image[:, :, 0]
+  if image.ndim == 2:
+    image = to_rgb(image, vmin=vmin, vmax=vmax, cmap=cmap)
+  return image
+
+
 def show_image(
     image: _ArrayLike, *, title: str | None = None, **kwargs: Any
 ) -> str | None:
@@ -1013,22 +1055,10 @@ def show_images(
           f' ({len(list_images)} vs {len(list_titles)}).'
       )
 
-  def ensure_mapped_to_rgb(image: _ArrayLike) -> _NDArray:
-    image = _as_valid_media_array(image)
-    if not (
-        image.ndim == 2 or (image.ndim == 3 and image.shape[2] in (1, 3, 4))
-    ):
-      raise ValueError(
-          f'Image with shape {image.shape} is neither a 2D array'
-          ' nor a 3D array with 1, 3, or 4 channels.'
-      )
-    if image.ndim == 3 and image.shape[2] == 1:
-      image = image[:, :, 0]
-    if image.ndim == 2:
-      image = to_rgb(image, vmin=vmin, vmax=vmax, cmap=cmap)
-    return image
-
-  list_images = [ensure_mapped_to_rgb(image) for image in list_images]
+  list_images = [
+      _ensure_mapped_to_rgb(image, vmin=vmin, vmax=vmax, cmap=cmap)
+      for image in list_images
+  ]
 
   def maybe_downsample(image: _NDArray) -> _NDArray:
     shape: tuple[int, int] = image.shape[:2]  # type: ignore[assignment]
@@ -1081,6 +1111,44 @@ def show_images(
     return s
   _display_html(s)
   return None
+
+
+def compare_images(
+    images: Iterable[_ArrayLike],
+    *,
+    vmin: float | None = None,
+    vmax: float | None = None,
+    cmap: str | Callable[[_ArrayLike], _NDArray] = 'gray',
+) -> None:
+  """Compare two images using an interactive slider.
+
+  Displays an HTML slider component to interactively swipe between two images.
+  The slider functionality requires Internet access.  See additional info in
+  `https://github.com/sneas/img-comparison-slider`.
+
+  >>> image1, image2 = np.random.rand(64, 64, 3), color_ramp((64, 64))
+  >>> compare_images([image1, image2])
+
+  Args:
+    images: Iterable of images.  Each image must be either a 2D array or a 3D
+      array with 1, 3, or 4 channels.  There must be exactly two images.
+    vmin: For single-channel image, explicit min value for display.
+    vmax: For single-channel image, explicit max value for display.
+    cmap: For single-channel image, `pyplot` color map or callable to map 1D to
+      3D color.
+  """
+  list_images = [
+      _ensure_mapped_to_rgb(image, vmin=vmin, vmax=vmax, cmap=cmap)
+      for image in images
+  ]
+  if len(list_images) != 2:
+    raise ValueError('The number of images must be 2.')
+  png_datas = [compress_image(to_uint8(image)) for image in list_images]
+  b64_1, b64_2 = [
+      base64.b64encode(png_data).decode('utf-8') for png_data in png_datas
+  ]
+  s = _IMAGE_COMPARISON_HTML.replace('{b64_1}', b64_1).replace('{b64_2}', b64_2)
+  _display_html(s)
 
 
 # ** Video I/O.
