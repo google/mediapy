@@ -1,4 +1,4 @@
-# Copyright 2022 The mediapy Authors.
+# Copyright 2023 The mediapy Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -358,27 +358,25 @@ class MediapyTest(parameterized.TestCase):
   def test_read_contents(self):
     data = b'Test data'
     with tempfile.TemporaryDirectory() as directory_name:
-      filename = os.path.join(directory_name, 'file')
-      with open(filename, 'wb') as f:
-        f.write(data)
-      new_data = media.read_contents(filename)
+      tmp_path = pathlib.Path(directory_name) / 'file'
+      tmp_path.write_bytes(data)
+      new_data = media.read_contents(tmp_path)
       self.assertEqual(new_data, data)
-      new_data = media.read_contents(pathlib.Path(filename))
+      new_data = media.read_contents(str(tmp_path))
       self.assertEqual(new_data, data)
 
   def test_read_via_local_file_on_local_file(self):
     with tempfile.TemporaryDirectory() as directory_name:
-      filename = os.path.join(directory_name, 'file')
-      with open(filename, 'w') as f:
-        f.write('text')
-      with media._read_via_local_file(filename) as local_filename:
-        self.assertEqual(local_filename, filename)
+      tmp_path = pathlib.Path(directory_name) / 'file'
+      tmp_path.write_text('text', encoding='utf-8')
+      with media._read_via_local_file(tmp_path) as local_filename:
+        self.assertEqual(local_filename, str(tmp_path))
 
   def test_write_via_local_file_on_local_file(self):
     with tempfile.TemporaryDirectory() as directory_name:
-      filename = os.path.join(directory_name, 'file')
-      with media._write_via_local_file(filename) as local_filename:
-        self.assertEqual(local_filename, filename)
+      tmp_path = pathlib.Path(directory_name) / 'file'
+      with media._write_via_local_file(tmp_path) as local_filename:
+        self.assertEqual(local_filename, str(tmp_path))
 
   @parameterized.parameters('uint8', 'uint16')
   def test_image_write_read_roundtrip(self, dtype):
@@ -567,9 +565,9 @@ class MediapyTest(parameterized.TestCase):
         (image for image in original_video) if use_generator else original_video
     )
     with tempfile.TemporaryDirectory() as directory_name:
-      filename = os.path.join(directory_name, 'test.mp4')
-      media.write_video(filename, video, fps=fps, qp=qp)
-      new_video = media.read_video(filename)
+      tmp_path = pathlib.Path(directory_name) / 'test.mp4'
+      media.write_video(tmp_path, video, fps=fps, qp=qp)
+      new_video = media.read_video(tmp_path)
       self.assertEqual(new_video.metadata.num_images, num_images)
       self.assertEqual(new_video.metadata.shape, shape)
       self.assertEqual(new_video.metadata.fps, fps)
@@ -582,15 +580,15 @@ class MediapyTest(parameterized.TestCase):
     fps = 120
     bps = 400_000
     with tempfile.TemporaryDirectory() as directory_name:
-      filename = os.path.join(directory_name, 'test.mp4')
+      tmp_path = pathlib.Path(directory_name) / 'test.mp4'
       images = []
-      with media.VideoWriter(filename, shape, fps=fps, bps=bps) as writer:
+      with media.VideoWriter(tmp_path, shape, fps=fps, bps=bps) as writer:
         for image in media.moving_circle(shape, num_images):
           image_uint8 = media.to_uint8(image)
           writer.add_image(image_uint8)
           images.append(image_uint8)
 
-      with media.VideoReader(filename) as reader:
+      with media.VideoReader(tmp_path) as reader:
         self.assertEqual(reader.num_images, num_images)
         self.assert_all_equal(reader.shape, shape)
         self.assertEqual(reader.fps, fps)
@@ -609,13 +607,14 @@ class MediapyTest(parameterized.TestCase):
     bps = 40_000_000
     video = media.to_uint8(media.moving_circle(shape, num_images))
     with tempfile.TemporaryDirectory() as directory_name:
-      filename1 = os.path.join(directory_name, 'test1.mp4')
-      filename2 = os.path.join(directory_name, 'test2.mp4')
-      media.write_video(filename1, video, fps=fps, bps=bps)
+      tmp_dir = pathlib.Path(directory_name)
+      path1 = tmp_dir / 'test1.mp4'
+      path2 = tmp_dir / 'test2.mp4'
+      media.write_video(path1, video, fps=fps, bps=bps)
 
-      with media.VideoReader(filename1) as reader:
+      with media.VideoReader(path1) as reader:
         with media.VideoWriter(
-            filename2,
+            path2,
             reader.shape,
             metadata=reader.metadata,
             encoded_format='yuv420p',
@@ -623,7 +622,7 @@ class MediapyTest(parameterized.TestCase):
           for image in reader:
             writer.add_image(image)
 
-      new_video = media.read_video(filename2)
+      new_video = media.read_video(path2)
       self.assertEqual(new_video.metadata.num_images, num_images)
       self.assertEqual(new_video.metadata.shape, shape)
       self.assertEqual(new_video.metadata.fps, fps)
@@ -640,13 +639,11 @@ class MediapyTest(parameterized.TestCase):
     )
     video = np.broadcast_to(horizontal_gray_ramp, (num_images, *shape))
     with tempfile.TemporaryDirectory() as directory_name:
-      filename = os.path.join(directory_name, 'test3.mp4')
+      path = pathlib.Path(directory_name) / 'test3.mp4'
       media.write_video(
-          filename, video, fps=fps, bps=bps, encoded_format='yuv420p10le'
+          path, video, fps=fps, bps=bps, encoded_format='yuv420p10le'
       )
-      new_video = media.read_video(
-          filename, dtype=np.uint16, output_format='gray'
-      )
+      new_video = media.read_video(path, dtype=np.uint16, output_format='gray')
     self.assertEqual(new_video.dtype, np.uint16)
     value_1_of_10bit_encoded_in_16bits = 64
     self._check_similar(

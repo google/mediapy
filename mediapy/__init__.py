@@ -1,4 +1,4 @@
-# Copyright 2022 The mediapy Authors.
+# Copyright 2023 The mediapy Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -99,7 +99,7 @@ with VideoReader(VIDEO) as r:
 from __future__ import annotations
 
 __docformat__ = 'google'
-__version__ = '1.1.6'
+__version__ = '1.1.7'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
@@ -1158,9 +1158,13 @@ def _get_video_metadata(path: _Path) -> VideoMetadata:
       if not (match := re.search(r', ([0-9]+)x([0-9]+)', line)):
         raise RuntimeError(f'Unable to parse video dimensions in line {line}')
       width, height = int(match.group(1)), int(match.group(2))
-      if not (match := re.search(r', ([0-9.]+) fps', line)):
+      if match := re.search(r', ([0-9.]+) fps', line):
+        fps = float(match.group(1))
+      elif str(path).endswith('.gif'):
+        # Some GIF files lack a framerate attribute; use a reasonable default.
+        fps = 10
+      else:
         raise RuntimeError(f'Unable to parse video framerate in line {line}')
-      fps = float(match.group(1))
     if match := re.fullmatch(r'\s*rotate\s*:\s*(\d+)', line):
       rotation = int(match.group(1))
   if not num_images:
@@ -1732,8 +1736,8 @@ def html_from_compressed_video(
   options = (
       f'controls width="{width}" height="{height}"'
       f' style="{border}object-fit:cover;"'
-      f"{' loop' if loop else ''}"
-      f"{' autoplay muted' if autoplay else ''}"
+      f'{" loop" if loop else ""}'
+      f'{" autoplay muted" if autoplay else ""}'
   )
   s = f"""<video {options}>
       <source src="data:video/mp4;base64,{b64}" type="video/mp4"/>

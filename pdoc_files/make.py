@@ -1,4 +1,4 @@
-# Copyright 2022 The mediapy Authors.
+# Copyright 2023 The mediapy Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 #!/usr/bin/env python3
 """Create HTML documentation from the source code using `pdoc`."""
-# Note: Invoke this script from the parent directory as "pdoc_files/make.py".
+# Note: Invoke this from the parent directory as "python3 pdoc_files/make.py".
 
 import pathlib
 import re
@@ -54,7 +54,7 @@ def main() -> None:
 
   if APPLY_POSTPROCESS:
     output_file = OUTPUT_DIRECTORY / f'{MODULE_NAME}.html'
-    text = output_file.read_text()
+    text = output_file.read_text(encoding='utf-8')
 
     # collections.abc.* -> * (Iterable, Mapping, Callable, etc.).
     text = text.replace(
@@ -103,7 +103,7 @@ def main() -> None:
     )
     text = text.replace('~_NDType', 'np.dtype')
 
-    output_file.write_text(text)
+    output_file.write_text(text, encoding='utf-8')
 
 
 if __name__ == '__main__':
