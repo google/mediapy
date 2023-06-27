@@ -1123,8 +1123,8 @@ def compare_images(
   """Compare two images using an interactive slider.
 
   Displays an HTML slider component to interactively swipe between two images.
-  The slider functionality requires Internet access.  See additional info in
-  `https://github.com/sneas/img-comparison-slider`.
+  The slider functionality requires that the web browser have Internet access.
+  See additional info in `https://github.com/sneas/img-comparison-slider`.
 
   >>> image1, image2 = np.random.rand(64, 64, 3), color_ramp((64, 64))
   >>> compare_images([image1, image2])

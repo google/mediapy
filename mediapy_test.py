@@ -15,7 +15,6 @@
 """Tests for package mediapy."""
 
 import io
-import os
 import pathlib
 import re
 import tempfile
