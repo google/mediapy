@@ -1,4 +1,4 @@
-# Copyright 2022 The mediapy Authors.
+# Copyright 2023 The mediapy Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+#!/usr/bin/env python3
 """Create HTML documentation from the source code using `pdoc`."""
 # Note: Invoke this from the parent directory as "python3 pdoc_files/make.py".
 
