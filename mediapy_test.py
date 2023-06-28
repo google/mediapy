@@ -15,7 +15,6 @@
 """Tests for package mediapy."""
 
 import io
-import os
 import pathlib
 import re
 import tempfile
@@ -553,6 +552,16 @@ class MediapyTest(parameterized.TestCase):
     self.assertIsInstance(htmls[0], IPython.display.HTML)
     self.assertLen(re.findall('(?s)<table', htmls[0].data), 3)
     self.assertLen(re.findall('(?s)<img', htmls[0].data), 5)
+
+  def test_compare_images(self):
+    htmls = []
+    with mock.patch('IPython.display.display', htmls.append):
+      media.compare_images([media.color_ramp()] * 2)
+    self.assertLen(htmls, 1)
+    self.assertIsInstance(htmls[0], IPython.display.HTML)
+    self.assertLen(re.findall('(?s)<img-comparison-slider>', htmls[0].data), 1)
+    self.assertLen(re.findall('(?s)base64', htmls[0].data), 2)
+    self.assertLen(re.findall('(?s)b64', htmls[0].data), 0)  # pylint: disable=g-generic-assert
 
   @parameterized.parameters(False, True)
   def test_video_non_streaming_write_read_roundtrip(self, use_generator):
