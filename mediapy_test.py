@@ -39,6 +39,7 @@ _TEST_SHAPES2 = [
     (64, 64, 3),
     (64, 64),
 ]
+_TEST_SHAPES3 = [(), (1,), (2, 2)]
 
 
 def _rms_diff(a, b) -> float:
@@ -165,8 +166,10 @@ class MediapyTest(parameterized.TestCase):
     # An array with data type 'uint64' is possible, but it is awkward to process
     # exactly because it requires more than float64 intermediate precision.
 
-  def test_to_type_extreme_value(self):
-    types = ['uint8', 'uint16', 'uint32', 'uint64', 'float32', 'float64']
+  @parameterized.parameters(
+      zip(_TEST_TYPES + ['uint64', 'bool'], _TEST_TYPES, _TEST_SHAPES3)
+  )
+  def test_to_type_extreme_value(self, src_dtype, dst_dtype, shape):
     max_of_type = dict(
         bool=True,
         uint8=255,
@@ -176,18 +179,15 @@ class MediapyTest(parameterized.TestCase):
         float32=1.0,
         float64=1.0,
     )
-    for src_dtype in types + ['bool']:
-      for dst_dtype in types:
-        for shape in [(), (1,), (2, 2)]:
-          src_value = max_of_type[src_dtype]
-          src = np.full(shape, src_value, dtype=src_dtype)
-          dst = media.to_type(src, dst_dtype)
-          dst_value = dst.flat[0]
-          expected_value = max_of_type[dst_dtype]
-          msg = f'{src_dtype} {dst_dtype} {shape} {src} {dst}'
-          self.assertEqual(dst.dtype, dst_dtype, msg=msg)
-          self.assertEqual(dst.shape, src.shape, msg=msg)
-          self.assertEqual(dst_value, expected_value, msg=msg)
+    src_value = max_of_type[src_dtype]
+    src = np.full(shape, src_value, dtype=src_dtype)
+    dst = media.to_type(src, dst_dtype)
+    dst_value = dst.flat[0]
+    expected_value = max_of_type[dst_dtype]
+    msg = f'{src} {dst}'
+    self.assertEqual(dst.dtype, dst_dtype, msg=msg)
+    self.assertEqual(dst.shape, src.shape, msg=msg)
+    self.assertEqual(dst_value, expected_value, msg=msg)
 
   def test_to_float01(self):
     self.assert_all_close(
@@ -561,7 +561,7 @@ class MediapyTest(parameterized.TestCase):
     self.assertIsInstance(htmls[0], IPython.display.HTML)
     self.assertLen(re.findall('(?s)<img-comparison-slider>', htmls[0].data), 1)
     self.assertLen(re.findall('(?s)base64', htmls[0].data), 2)
-    self.assertLen(re.findall('(?s)b64', htmls[0].data), 0)  # pylint: disable=g-generic-assert
+    self.assertEmpty(re.findall('(?s)b64', htmls[0].data))
 
   @parameterized.parameters(False, True)
   def test_video_non_streaming_write_read_roundtrip(self, use_generator):
