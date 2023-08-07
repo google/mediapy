@@ -104,7 +104,7 @@ with VideoReader(VIDEO) as r:
 from __future__ import annotations
 
 __docformat__ = 'google'
-__version__ = '1.1.8'
+__version__ = '1.1.9'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
@@ -1217,7 +1217,7 @@ def _get_video_metadata(path: _Path) -> VideoMetadata:
       command, stderr=subprocess.PIPE, encoding='utf-8'
   ) as proc:
     _, err = proc.communicate()
-  bps = num_images = width = rotation = None
+  bps = fps = num_images = width = height = rotation = None
   for line in err.split('\n'):
     if match := re.search(r', bitrate: *([0-9.]+) kb/s', line):
       bps = int(match.group(1)) * 1000
@@ -1234,7 +1234,10 @@ def _get_video_metadata(path: _Path) -> VideoMetadata:
         fps = 10
       else:
         raise RuntimeError(f'Unable to parse video framerate in line {line}')
-    if match := re.fullmatch(r'\s*rotate\s*:\s*(\d+)', line):
+    if (
+        (match := re.fullmatch(r'\s*rotate\s*:\s*(\d+)', line)) or
+        (match := re.fullmatch(r'\s*.*rotation of -?(\d+)\s*.*\sdegrees', line))
+        ):
       rotation = int(match.group(1))
   if not num_images:
     raise RuntimeError(f'Unable to find frames in video: {err}')
