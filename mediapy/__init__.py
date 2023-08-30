@@ -923,7 +923,7 @@ def html_from_compressed_image(
       f' style="{border}image-rendering:{s_pixelated}; object-fit:cover;"'
       f' src="data:image/{fmt};base64,{b64}"/>'
   )
-  if title:
+  if title is not None:
     s = f"""<div style="display:flex; align-items:left;">
       <div style="display:flex; flex-direction:column; align-items:center;">
       <div>{title}</div><div>{s}</div></div></div>"""
@@ -1073,7 +1073,7 @@ def show_images(
   png_datas = [compress_image(to_uint8(image)) for image in list_images]
 
   for title, png_data in zip(list_titles, png_datas):
-    if title and _config.show_save_dir:
+    if title is not None and _config.show_save_dir:
       path = pathlib.Path(_config.show_save_dir) / f'{title}.png'
       with _open(path, mode='wb') as f:
         f.write(png_data)
@@ -1815,7 +1815,7 @@ def html_from_compressed_video(
       <source src="data:video/mp4;base64,{b64}" type="video/mp4"/>
       This browser does not support the video tag.
       </video>"""
-  if title:
+  if title is not None:
     s = f"""<div style="display:flex; align-items:left;">
       <div style="display:flex; flex-direction:column; align-items:center;">
       <div>{title}</div><div>{s}</div></div></div>"""
@@ -1932,7 +1932,7 @@ def show_videos(
     data = compress_video(
         video, metadata=metadata, fps=fps, bps=bps, qp=qp, codec=codec
     )
-    if title and _config.show_save_dir:
+    if title is not None and _config.show_save_dir:
       suffix = _filename_suffix_from_codec(codec)
       path = pathlib.Path(_config.show_save_dir) / f'{title}{suffix}'
       with _open(path, mode='wb') as f:
