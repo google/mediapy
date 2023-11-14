@@ -1388,8 +1388,8 @@ class VideoReader(_VideoIO):
       array with 3 color channels, except for format 'gray' which is 2D.
     """
     assert self._proc, 'Error: reading from an already closed context.'
-    assert self._proc.stdout
-    data = self._proc.stdout.read(self._num_bytes_per_image)
+    assert (stdout := self._proc.stdout) is not None
+    data = stdout.read(self._num_bytes_per_image)
     if not data:  # Due to either end-of-file or subprocess error.
       self.close()  # Raises exception if subprocess had error.
       return None  # To indicate end-of-file.
@@ -1644,20 +1644,24 @@ class VideoWriter(_VideoIO):
     if self.input_format == 'yuv':  # Convert from per-pixel YUV to planar YUV.
       image = np.moveaxis(image, 2, 0)
     data = image.tobytes()
-    assert self._proc.stdin
-    if self._proc.stdin.write(data) != len(data):
+    assert (stdin := self._proc.stdin) is not None
+    if stdin.write(data) != len(data):
       self._proc.wait()
-      assert self._proc.stderr
-      s = self._proc.stderr.read().decode()
+      stderr = self._proc.stderr
+      assert stderr is not None
+      s = stderr.read().decode()
       raise RuntimeError(f"Error writing '{self.path}': {s}")
 
   def close(self) -> None:
     """Finishes writing the video.  (Called automatically at end of context.)"""
     if self._popen:
       assert self._proc and self._proc.stdin and self._proc.stderr
-      self._proc.stdin.close()
+      assert (stdin := self._proc.stdin) is not None
+      stdin.close()
       if self._proc.wait():
-        s = self._proc.stderr.read().decode()
+        stderr = self._proc.stderr
+        assert stderr is not None
+        s = stderr.read().decode()
         raise RuntimeError(f"Error writing '{self.path}': {s}")
       self._popen.__exit__(None, None, None)
       self._popen = None
