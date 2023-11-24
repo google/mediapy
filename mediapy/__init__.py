@@ -1916,7 +1916,7 @@ def show_videos(
     list_titles = list(videos.keys())
     list_videos = list(videos.values())
   else:
-    list_videos = list(typing.cast(Iterable[_NDArray], videos))
+    list_videos = list(typing.cast('Iterable[_NDArray]', videos))
     list_titles = [None] * len(list_videos) if titles is None else list(titles)
     if len(list_videos) != len(list_titles):
       raise ValueError(
