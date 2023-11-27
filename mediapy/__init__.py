@@ -187,7 +187,8 @@ else:
 
 _IPYTHON_HTML_SIZE_LIMIT = 20_000_000
 _T = typing.TypeVar('_T')
-_Path = typing.Union[str, os.PathLike]
+_ = os  # Dummy use.
+_Path = typing.Union[str, 'os.PathLike[str]']
 
 _IMAGE_COMPARISON_HTML = """\
 <script
