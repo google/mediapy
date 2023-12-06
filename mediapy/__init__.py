@@ -104,7 +104,7 @@ with VideoReader(VIDEO) as r:
 from __future__ import annotations
 
 __docformat__ = 'google'
-__version__ = '1.1.9'
+__version__ = '1.2.0'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
@@ -116,7 +116,6 @@ import io
 import itertools
 import math
 import numbers
-import os
 import pathlib
 import re
 import shlex
@@ -129,11 +128,14 @@ from typing import Any
 import urllib.request
 
 import IPython.display
-import matplotlib
+import matplotlib.pyplot
 import numpy as np
 import numpy.typing as npt
 import PIL.Image
 import PIL.ImageOps
+
+if typing.TYPE_CHECKING:
+  import os  # pylint: disable=g-bad-import-order
 
 if not hasattr(PIL.Image, 'Resampling'):  # Allow Pillow<9.0.
   PIL.Image.Resampling = PIL.Image
@@ -187,7 +189,7 @@ else:
 
 _IPYTHON_HTML_SIZE_LIMIT = 20_000_000
 _T = typing.TypeVar('_T')
-_Path = typing.Union[str, os.PathLike]
+_Path = typing.Union[str, 'os.PathLike[str]']
 
 _IMAGE_COMPARISON_HTML = """\
 <script
@@ -504,10 +506,10 @@ def moving_circle(
     """Returns a video frame image."""
     image = color_ramp(shape, dtype=dtype)
     yx = np.moveaxis(np.indices(shape), 0, -1)
-    center = (shape[0] * 0.6, shape[1] * (image_index + 0.5) / num_images)
+    center = shape[0] * 0.6, shape[1] * (image_index + 0.5) / num_images
     radius_squared = (min(shape) * 0.1) ** 2
     inside = np.sum((yx - center) ** 2, axis=-1) < radius_squared
-    white_circle_color = (1.0, 1.0, 1.0)
+    white_circle_color = 1.0, 1.0, 1.0
     if np.issubdtype(dtype, np.unsignedinteger):
       white_circle_color = to_type([white_circle_color], dtype)[0]
     image[inside] = white_circle_color
@@ -837,7 +839,7 @@ def to_rgb(
   a = (a.astype('float') - vmin) / (vmax - vmin + np.finfo(float).eps)
   if isinstance(cmap, str):
     if hasattr(matplotlib, 'colormaps'):
-      rgb_from_scalar = matplotlib.colormaps[cmap]  # Newer version.
+      rgb_from_scalar: Any = matplotlib.colormaps[cmap]  # Newer version.
     else:
       rgb_from_scalar = matplotlib.pyplot.cm.get_cmap(cmap)
   else:
@@ -1234,19 +1236,20 @@ def _get_video_metadata(path: _Path) -> VideoMetadata:
         fps = 10
       else:
         raise RuntimeError(f'Unable to parse video framerate in line {line}')
-    if (
-        (match := re.fullmatch(r'\s*rotate\s*:\s*(\d+)', line)) or
-        (match := re.fullmatch(r'\s*.*rotation of -?(\d+)\s*.*\sdegrees', line))
-        ):
+    if match := re.fullmatch(r'\s*rotate\s*:\s*(\d+)', line):
+      rotation = int(match.group(1))
+    if match := re.fullmatch(r'.*rotation of (-?\d+).*\sdegrees', line):
       rotation = int(match.group(1))
   if not num_images:
     raise RuntimeError(f'Unable to find frames in video: {err}')
   if not width:
     raise RuntimeError(f'Unable to parse video header: {err}')
   # By default, ffmpeg enables "-autorotate"; we just fix the dimensions.
-  if rotation in (90, 270):
+  if rotation in (90, 270, -90, -270):
     width, height = height, width
-  shape = (height, width)
+  assert height is not None and width is not None
+  shape = height, width
+  assert fps is not None
   return VideoMetadata(num_images, shape, fps, bps)
 
 
@@ -1388,7 +1391,8 @@ class VideoReader(_VideoIO):
       array with 3 color channels, except for format 'gray' which is 2D.
     """
     assert self._proc, 'Error: reading from an already closed context.'
-    assert (stdout := self._proc.stdout) is not None
+    stdout = self._proc.stdout
+    assert stdout is not None
     data = stdout.read(self._num_bytes_per_image)
     if not data:  # Due to either end-of-file or subprocess error.
       self.close()  # Raises exception if subprocess had error.
@@ -1427,7 +1431,7 @@ class VideoReader(_VideoIO):
 class VideoWriter(_VideoIO):
   """Context to write a compressed video.
 
-  >>> shape = (480, 640)
+  >>> shape = 480, 640
   >>> with VideoWriter('/tmp/v.mp4', shape, fps=60) as writer:
   ...   for image in moving_circle(shape, num_images=60):
   ...     writer.add_image(image)
@@ -1644,7 +1648,8 @@ class VideoWriter(_VideoIO):
     if self.input_format == 'yuv':  # Convert from per-pixel YUV to planar YUV.
       image = np.moveaxis(image, 2, 0)
     data = image.tobytes()
-    assert (stdin := self._proc.stdin) is not None
+    stdin = self._proc.stdin
+    assert stdin is not None
     if stdin.write(data) != len(data):
       self._proc.wait()
       stderr = self._proc.stderr
@@ -1655,8 +1660,9 @@ class VideoWriter(_VideoIO):
   def close(self) -> None:
     """Finishes writing the video.  (Called automatically at end of context.)"""
     if self._popen:
-      assert self._proc and self._proc.stdin and self._proc.stderr
-      assert (stdin := self._proc.stdin) is not None
+      assert self._proc, 'Error: closing an already closed context.'
+      stdin = self._proc.stdin
+      assert stdin is not None
       stdin.close()
       if self._proc.wait():
         stderr = self._proc.stderr
@@ -1910,9 +1916,9 @@ def show_videos(
           'Cannot have both a video dictionary and a titles parameter.'
       )
     list_titles = list(videos.keys())
-    list_videos: list[Iterable[_NDArray]] = list(videos.values())
+    list_videos = list(videos.values())
   else:
-    list_videos = list(videos)
+    list_videos = list(typing.cast('Iterable[_NDArray]', videos))
     list_titles = [None] * len(list_videos) if titles is None else list(titles)
     if len(list_videos) != len(list_titles):
       raise ValueError(
@@ -1926,10 +1932,8 @@ def show_videos(
   for video, title in zip(list_videos, list_titles):
     metadata: VideoMetadata | None = getattr(video, 'metadata', None)
     first_image, video = _peek_first(video)
-    w, h = _get_width_height(
-        width, height, first_image.shape[:2]  # type: ignore[arg-type]
-    )
-    if downsample and (w < first_image.shape[1] or h < first_image.shape[0]):  # pytype: disable=attribute-error
+    w, h = _get_width_height(width, height, first_image.shape[:2])
+    if downsample and (w < first_image.shape[1] or h < first_image.shape[0]):
       # Not resize_video() because each image may have different depth and type.
       video = [resize_image(image, (h, w)) for image in video]
       first_image = video[0]
@@ -1942,7 +1946,7 @@ def show_videos(
       with _open(path, mode='wb') as f:
         f.write(data)
     if codec == 'gif':
-      pixelated = h > first_image.shape[0] or w > first_image.shape[1]  # pytype: disable=attribute-error
+      pixelated = h > first_image.shape[0] or w > first_image.shape[1]
       html_string = html_from_compressed_image(
           data, w, h, title=title, fmt='gif', pixelated=pixelated, **kwargs
       )

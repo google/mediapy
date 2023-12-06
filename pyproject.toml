@@ -41,6 +41,7 @@ dev = [
     "pylint>=2.6.0",
     "pytest",
     "pytest-xdist",
+    "pytype",
 ]
 
 [build-system]
@@ -75,8 +76,8 @@ extend-exclude = "\\.ipynb"
 disable = [
     "unspecified-encoding", "line-too-long", "too-many-lines",
     "too-few-public-methods", "too-many-locals", "too-many-instance-attributes",
-    "too-many-branches", "too-many-statements", "using-constant-test",
-    "wrong-import-order", "use-dict-literal",
+    "too-many-branches", "too-many-statements", "too-many-arguments",
+    "using-constant-test", "wrong-import-order", "use-dict-literal",
 ]
 reports = false
 score = false
@@ -88,3 +89,9 @@ good-names-rgxs = "^[a-z][a-z0-9]?|[A-Z]([A-Z_]*[A-Z])?$"
 [tool.pylint.format]
 indent-string = "  "
 expected-line-ending-format = "LF"
+
+[tool.pytype]
+keep_going = true
+strict_none_binding = true
+use_enum_overlay = true
+use_fiddle_overlay = true

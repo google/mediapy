@@ -222,7 +222,7 @@ class MediapyTest(parameterized.TestCase):
     )
 
   def test_color_ramp_float(self):
-    shape = (2, 3)
+    shape = 2, 3
     image = media.color_ramp(shape=shape)
     self.assert_all_equal(image.shape[:2], shape)
     self.assert_all_close(
@@ -242,7 +242,7 @@ class MediapyTest(parameterized.TestCase):
     )
 
   def test_color_ramp_uint8(self):
-    shape = (1, 3)
+    shape = 1, 3
     image = media.color_ramp(shape=shape, dtype=np.uint8)
     self.assert_all_equal(image.shape[:2], shape)
     expected = [[
@@ -565,7 +565,7 @@ class MediapyTest(parameterized.TestCase):
 
   @parameterized.parameters(False, True)
   def test_video_non_streaming_write_read_roundtrip(self, use_generator):
-    shape = (240, 320)
+    shape = 240, 320
     num_images = 10
     fps = 40
     qp = 20
@@ -577,6 +577,7 @@ class MediapyTest(parameterized.TestCase):
       tmp_path = pathlib.Path(directory_name) / 'test.mp4'
       media.write_video(tmp_path, video, fps=fps, qp=qp)
       new_video = media.read_video(tmp_path)
+      assert new_video.metadata
       self.assertEqual(new_video.metadata.num_images, num_images)
       self.assertEqual(new_video.metadata.shape, shape)
       self.assertEqual(new_video.metadata.fps, fps)
@@ -584,7 +585,7 @@ class MediapyTest(parameterized.TestCase):
       self._check_similar(original_video, new_video, 3.0)
 
   def test_video_streaming_write_read_roundtrip(self):
-    shape = (62, 744)
+    shape = 62, 744
     num_images = 20
     fps = 120
     bps = 400_000
@@ -610,7 +611,7 @@ class MediapyTest(parameterized.TestCase):
           self._check_similar(images[index], new_image, 7.0, f'index={index}')
 
   def test_video_streaming_read_write(self):
-    shape = (400, 400)
+    shape = 400, 400
     num_images = 4
     fps = 25
     bps = 40_000_000
@@ -632,6 +633,7 @@ class MediapyTest(parameterized.TestCase):
             writer.add_image(image)
 
       new_video = media.read_video(path2)
+      assert new_video.metadata
       self.assertEqual(new_video.metadata.num_images, num_images)
       self.assertEqual(new_video.metadata.shape, shape)
       self.assertEqual(new_video.metadata.fps, fps)
@@ -639,7 +641,7 @@ class MediapyTest(parameterized.TestCase):
       self._check_similar(video, new_video, 3.0)
 
   def test_video_read_write_10bit(self):
-    shape = (256, 256)
+    shape = 256, 256
     num_images = 4
     fps = 60
     bps = 40_000_000
@@ -690,7 +692,7 @@ class MediapyTest(parameterized.TestCase):
     self._check_similar(video, new_video, max_rms=8.0)
 
   def test_html_from_compressed_video(self):
-    shape = (240, 320)
+    shape = 240, 320
     video = media.moving_circle(shape, 10)
     text = media.html_from_compressed_video(
         media.compress_video(video), shape[1], shape[0]
