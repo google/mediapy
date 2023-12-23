@@ -116,6 +116,7 @@ import io
 import itertools
 import math
 import numbers
+import os
 import pathlib
 import re
 import shlex
@@ -134,8 +135,7 @@ import numpy.typing as npt
 import PIL.Image
 import PIL.ImageOps
 
-if typing.TYPE_CHECKING:
-  import os  # pylint: disable=g-bad-import-order
+_ = os  # Package only needed for typing.TYPE_CHECKING.
 
 if not hasattr(PIL.Image, 'Resampling'):  # Allow Pillow<9.0.
   PIL.Image.Resampling = PIL.Image
@@ -1221,15 +1221,15 @@ def _get_video_metadata(path: _Path) -> VideoMetadata:
     _, err = proc.communicate()
   bps = fps = num_images = width = height = rotation = None
   for line in err.split('\n'):
-    if match := re.search(r', bitrate: *([0-9.]+) kb/s', line):
+    if match := re.search(r', bitrate: *([\d.]+) kb/s', line):
       bps = int(match.group(1)) * 1000
-    if matches := re.findall(r'frame= *([0-9]+) ', line):
+    if matches := re.findall(r'frame= *(\d+) ', line):
       num_images = int(matches[-1])
     if 'Stream #0:' in line and ': Video:' in line:
-      if not (match := re.search(r', ([0-9]+)x([0-9]+)', line)):
+      if not (match := re.search(r', (\d+)x(\d+)', line)):
         raise RuntimeError(f'Unable to parse video dimensions in line {line}')
       width, height = int(match.group(1)), int(match.group(2))
-      if match := re.search(r', ([0-9.]+) fps', line):
+      if match := re.search(r', ([\d.]+) fps', line):
         fps = float(match.group(1))
       elif str(path).endswith('.gif'):
         # Some GIF files lack a framerate attribute; use a reasonable default.
