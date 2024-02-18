@@ -104,7 +104,7 @@ with VideoReader(VIDEO) as r:
 from __future__ import annotations
 
 __docformat__ = 'google'
-__version__ = '1.2.0'
+__version__ = '1.2.1'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
@@ -420,7 +420,8 @@ def to_type(array: _ArrayLike, dtype: _DTypeLike) -> _NDArray:
       a = a.astype(np.float64) * (dst_max / src_max) + 0.5
       dst = np.atleast_1d(a)
       values_too_large = dst >= np.float64(dst_max)
-      dst = dst.astype(dtype)
+      with np.errstate(invalid='ignore'):
+        dst = dst.astype(dtype)
       dst[values_too_large] = dst_max
       result = dst if a.ndim > 0 else dst[0]
   else:
