@@ -1,4 +1,4 @@
-# Copyright 2023 The mediapy Authors.
+# Copyright 2024 The mediapy Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1185,7 +1185,8 @@ class VideoMetadata(typing.NamedTuple):
   Attributes:
     num_images: Number of frames that is expected from the video stream.  This
       is estimated from the framerate and the duration stored in the video
-      header, so it might be inexact.
+      header, so it might be inexact.  We set the value to -1 if number of
+      frames is not found in the header.
     shape: The dimensions (height, width) of each video frame.
     fps: The framerate in frames per second.
     bps: The estimated bitrate of the video stream in bits per second, retrieved
@@ -1241,7 +1242,7 @@ def _get_video_metadata(path: _Path) -> VideoMetadata:
     if match := re.fullmatch(r'.*rotation of (-?\d+).*\sdegrees', line):
       rotation = int(match.group(1))
   if not num_images:
-    raise RuntimeError(f'Unable to find frames in video: {err}')
+    num_images = -1
   if not width:
     raise RuntimeError(f'Unable to parse video header: {err}')
   # By default, ffmpeg enables "-autorotate"; we just fix the dimensions.
