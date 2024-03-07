@@ -17,6 +17,7 @@
 import io
 import pathlib
 import re
+import sys
 import tempfile
 from unittest import mock
 
@@ -100,18 +101,26 @@ class MediapyTest(parameterized.TestCase):
 
   def test_run_string(self):
     with mock.patch('sys.stdout', io.StringIO()) as mock_stdout:
-      media._run('echo "$((17 + 22))"')
-      self.assertEqual(mock_stdout.getvalue(), '39\n')
-    with mock.patch('sys.stdout', io.StringIO()) as mock_stdout:
-      media._run('/bin/bash -c "echo $((17 + 22))"')
-      self.assertEqual(mock_stdout.getvalue(), '39\n')
-    with self.assertRaisesRegex(RuntimeError, 'failed with code 3'):
-      media._run('exit 3')
+      media._run('echo ab cd')
+      self.assertEqual(mock_stdout.getvalue(), 'ab cd\n')
+    if sys.platform == 'linux':
+      with mock.patch('sys.stdout', io.StringIO()) as mock_stdout:
+        media._run('echo "$((17 + 22))"')
+        self.assertEqual(mock_stdout.getvalue(), '39\n')
+      with mock.patch('sys.stdout', io.StringIO()) as mock_stdout:
+        media._run('/bin/bash -c "echo $((17 + 22))"')
+        self.assertEqual(mock_stdout.getvalue(), '39\n')
+      with self.assertRaisesRegex(RuntimeError, 'failed with code 3'):
+        media._run('exit 3')
 
   def test_run_args_sequence(self):
     with mock.patch('sys.stdout', io.StringIO()) as mock_stdout:
-      media._run(['/bin/bash', '-c', 'echo $((17 + 22))'])
-      self.assertEqual(mock_stdout.getvalue(), '39\n')
+      media._run(['echo', 'ef', 'gh'])
+      self.assertEqual(mock_stdout.getvalue(), 'ef gh\n')
+    if sys.platform == 'linux':
+      with mock.patch('sys.stdout', io.StringIO()) as mock_stdout:
+        media._run(['/bin/bash', '-c', 'echo $((17 + 22))'])
+        self.assertEqual(mock_stdout.getvalue(), '39\n')
 
   def test_to_type(self):
     def check(src, dtype, expected):
