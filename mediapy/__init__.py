@@ -138,7 +138,7 @@ import PIL.ImageOps
 _ = os  # Package only needed for typing.TYPE_CHECKING.
 
 if not hasattr(PIL.Image, 'Resampling'):  # Allow Pillow<9.0.
-  PIL.Image.Resampling = PIL.Image
+  PIL.Image.Resampling = PIL.Image  # type: ignore
 
 # Selected and reordered here for pdoc documentation.
 __all__ = [
@@ -607,7 +607,8 @@ def _pil_image(image: _ArrayLike, mode: str | None = None) -> PIL.Image.Image:
   image = _as_valid_media_array(image)
   if image.ndim not in (2, 3):
     raise ValueError(f'Image shape {image.shape} is neither 2D nor 3D.')
-  return PIL.Image.fromarray(image, mode=mode)
+  pil_image: PIL.Image.Image = PIL.Image.fromarray(image, mode=mode)  # type: ignore[no-untyped-call]
+  return pil_image
 
 
 def resize_image(image: _ArrayLike, shape: tuple[int, int]) -> _NDArray:
@@ -885,9 +886,11 @@ def decompress_image(
   """
   pil_image = PIL.Image.open(io.BytesIO(data))
   if apply_exif_transpose:
-    pil_image = PIL.ImageOps.exif_transpose(pil_image)
+    tmp_image = PIL.ImageOps.exif_transpose(pil_image)  # Future: in_place=True.
+    assert tmp_image
+    pil_image = tmp_image
   if dtype is None:
-    dtype = np.uint16 if pil_image.mode == 'I' else np.uint8
+    dtype = np.uint16 if pil_image.mode.startswith('I') else np.uint8
   return np.array(pil_image, dtype=dtype)
 
 
