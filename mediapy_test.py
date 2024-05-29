@@ -17,6 +17,7 @@
 import io
 import pathlib
 import re
+import sys
 import tempfile
 from unittest import mock
 
@@ -100,18 +101,26 @@ class MediapyTest(parameterized.TestCase):
 
   def test_run_string(self):
     with mock.patch('sys.stdout', io.StringIO()) as mock_stdout:
-      media._run('echo "$((17 + 22))"')
-      self.assertEqual(mock_stdout.getvalue(), '39\n')
-    with mock.patch('sys.stdout', io.StringIO()) as mock_stdout:
-      media._run('/bin/bash -c "echo $((17 + 22))"')
-      self.assertEqual(mock_stdout.getvalue(), '39\n')
-    with self.assertRaisesRegex(RuntimeError, 'failed with code 3'):
-      media._run('exit 3')
+      media._run('echo ab cd')
+      self.assertEqual(mock_stdout.getvalue(), 'ab cd\n')
+    if sys.platform == 'linux':
+      with mock.patch('sys.stdout', io.StringIO()) as mock_stdout:
+        media._run('echo "$((17 + 22))"')
+        self.assertEqual(mock_stdout.getvalue(), '39\n')
+      with mock.patch('sys.stdout', io.StringIO()) as mock_stdout:
+        media._run('/bin/bash -c "echo $((17 + 22))"')
+        self.assertEqual(mock_stdout.getvalue(), '39\n')
+      with self.assertRaisesRegex(RuntimeError, 'failed with code 3'):
+        media._run('exit 3')
 
   def test_run_args_sequence(self):
     with mock.patch('sys.stdout', io.StringIO()) as mock_stdout:
-      media._run(['/bin/bash', '-c', 'echo $((17 + 22))'])
-      self.assertEqual(mock_stdout.getvalue(), '39\n')
+      media._run(['echo', 'ef', 'gh'])
+      self.assertEqual(mock_stdout.getvalue(), 'ef gh\n')
+    if sys.platform == 'linux':
+      with mock.patch('sys.stdout', io.StringIO()) as mock_stdout:
+        media._run(['/bin/bash', '-c', 'echo $((17 + 22))'])
+        self.assertEqual(mock_stdout.getvalue(), '39\n')
 
   def test_to_type(self):
     def check(src, dtype, expected):
@@ -225,31 +234,23 @@ class MediapyTest(parameterized.TestCase):
     shape = 2, 3
     image = media.color_ramp(shape=shape)
     self.assert_all_equal(image.shape[:2], shape)
-    self.assert_all_close(
-        image,
-        [
-            [
-                [0.5 / shape[0], 0.5 / shape[1], 0.0],
-                [0.5 / shape[0], 1.5 / shape[1], 0.0],
-                [0.5 / shape[0], 2.5 / shape[1], 0.0],
-            ],
-            [
-                [1.5 / shape[0], 0.5 / shape[1], 0.0],
-                [1.5 / shape[0], 1.5 / shape[1], 0.0],
-                [1.5 / shape[0], 2.5 / shape[1], 0.0],
-            ],
-        ],
-    )
+    r1, r2 = (v / shape[0] for v in [0.5, 1.5])
+    g1, g2, g3 = (v / shape[1] for v in [0.5, 1.5, 2.5])
+    b = 0.0
+    expected = [
+        [[r1, g1, b], [r1, g2, b], [r1, g3, b]],
+        [[r2, g1, b], [r2, g2, b], [r2, g3, b]],
+    ]
+    self.assert_all_close(image, expected)
 
   def test_color_ramp_uint8(self):
     shape = 1, 3
     image = media.color_ramp(shape=shape, dtype=np.uint8)
     self.assert_all_equal(image.shape[:2], shape)
-    expected = [[
-        [int(0.5 / shape[0] * 255 + 0.5), int(0.5 / shape[1] * 255 + 0.5), 0],
-        [int(0.5 / shape[0] * 255 + 0.5), int(1.5 / shape[1] * 255 + 0.5), 0],
-        [int(0.5 / shape[0] * 255 + 0.5), int(2.5 / shape[1] * 255 + 0.5), 0],
-    ]]
+    r = int(0.5 / shape[0] * 255 + 0.5)
+    g1, g2, g3 = (int(v / shape[1] * 255 + 0.5) for v in [0.5, 1.5, 2.5])
+    b = 0
+    expected = [[[r, g1, b], [r, g2, b], [r, g3, b]]]
     self.assert_all_equal(image, expected)
 
   @parameterized.parameters(np.uint8, 'uint8', 'float32')
@@ -380,6 +381,7 @@ class MediapyTest(parameterized.TestCase):
   @parameterized.parameters('uint8', 'uint16')
   def test_image_write_read_roundtrip(self, dtype):
     image = media.color_ramp((27, 63), dtype=dtype)
+    self.assertEqual(image.dtype, dtype)
     if dtype == 'uint16':
       # Unfortunately PIL supports only single-channel 16-bit images for now.
       image = image[..., 0]
@@ -397,30 +399,14 @@ class MediapyTest(parameterized.TestCase):
     def gray_color(x):
       return [x, x, x]
 
+    expected = [[gray_color(v / 1.4) for v in [0.0, 0.2, 0.4, 1.0, 1.2, 1.4]]]
+    self.assert_all_close(media.to_rgb(a), expected, atol=0.002)
+
+    expected = [[gray_color(v) for v in [0.0, 0.0, 0.2, 0.8, 1.0, 1.0]]]
     self.assert_all_close(
-        media.to_rgb(a),
-        [[
-            gray_color(0.0 / 1.4),
-            gray_color(0.2 / 1.4),
-            gray_color(0.4 / 1.4),
-            gray_color(1.0 / 1.4),
-            gray_color(1.2 / 1.4),
-            gray_color(1.4 / 1.4),
-        ]],
-        atol=0.002,
+        media.to_rgb(a, vmin=0.0, vmax=1.0), expected, atol=0.002
     )
-    self.assert_all_close(
-        media.to_rgb(a, vmin=0.0, vmax=1.0),
-        [[
-            gray_color(0.0),
-            gray_color(0.0),
-            gray_color(0.2),
-            gray_color(0.8),
-            gray_color(1.0),
-            gray_color(1.0),
-        ]],
-        atol=0.002,
-    )
+
     a = np.array([-0.4, 0.0, 0.2])
     self.assert_all_close(
         media.to_rgb(a, vmin=-1.0, vmax=1.0, cmap='bwr'),
@@ -752,10 +738,11 @@ class MediapyTest(parameterized.TestCase):
   def test_show_videos_dict(self):
     htmls = []
     with mock.patch('IPython.display.display', htmls.append):
-      media.show_videos({
+      videos = {
           'title1': media.moving_circle(),
           'title2': media.moving_circle(),
-      })
+      }
+      media.show_videos(videos)
     self.assertLen(htmls, 1)
     self.assertIsInstance(htmls[0], IPython.display.HTML)
     self.assertLen(re.findall('(?s)<table', htmls[0].data), 1)

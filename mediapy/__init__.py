@@ -104,7 +104,7 @@ with VideoReader(VIDEO) as r:
 from __future__ import annotations
 
 __docformat__ = 'google'
-__version__ = '1.2.0'
+__version__ = '1.2.1'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
@@ -116,6 +116,7 @@ import io
 import itertools
 import math
 import numbers
+import os  # Package only needed for typing.TYPE_CHECKING.
 import pathlib
 import re
 import shlex
@@ -134,11 +135,9 @@ import numpy.typing as npt
 import PIL.Image
 import PIL.ImageOps
 
-if typing.TYPE_CHECKING:
-  import os  # pylint: disable=g-bad-import-order
 
 if not hasattr(PIL.Image, 'Resampling'):  # Allow Pillow<9.0.
-  PIL.Image.Resampling = PIL.Image
+  PIL.Image.Resampling = PIL.Image  # type: ignore
 
 # Selected and reordered here for pdoc documentation.
 __all__ = [
@@ -189,7 +188,7 @@ else:
 
 _IPYTHON_HTML_SIZE_LIMIT = 20_000_000
 _T = typing.TypeVar('_T')
-_Path = typing.Union[str, 'os.PathLike[str]']
+_Path = typing.Union[str, os.PathLike[str]]
 
 _IMAGE_COMPARISON_HTML = """\
 <script
@@ -420,7 +419,8 @@ def to_type(array: _ArrayLike, dtype: _DTypeLike) -> _NDArray:
       a = a.astype(np.float64) * (dst_max / src_max) + 0.5
       dst = np.atleast_1d(a)
       values_too_large = dst >= np.float64(dst_max)
-      dst = dst.astype(dtype)
+      with np.errstate(invalid='ignore'):
+        dst = dst.astype(dtype)
       dst[values_too_large] = dst_max
       result = dst if a.ndim > 0 else dst[0]
   else:
@@ -606,7 +606,8 @@ def _pil_image(image: _ArrayLike, mode: str | None = None) -> PIL.Image.Image:
   image = _as_valid_media_array(image)
   if image.ndim not in (2, 3):
     raise ValueError(f'Image shape {image.shape} is neither 2D nor 3D.')
-  return PIL.Image.fromarray(image, mode=mode)
+  pil_image: PIL.Image.Image = PIL.Image.fromarray(image, mode=mode)  # type: ignore[no-untyped-call]
+  return pil_image
 
 
 def resize_image(image: _ArrayLike, shape: tuple[int, int]) -> _NDArray:
@@ -884,9 +885,11 @@ def decompress_image(
   """
   pil_image = PIL.Image.open(io.BytesIO(data))
   if apply_exif_transpose:
-    pil_image = PIL.ImageOps.exif_transpose(pil_image)
+    tmp_image = PIL.ImageOps.exif_transpose(pil_image)  # Future: in_place=True.
+    assert tmp_image
+    pil_image = tmp_image
   if dtype is None:
-    dtype = np.uint16 if pil_image.mode == 'I' else np.uint8
+    dtype = np.uint16 if pil_image.mode.startswith('I') else np.uint8
   return np.array(pil_image, dtype=dtype)
 
 
@@ -1222,15 +1225,15 @@ def _get_video_metadata(path: _Path) -> VideoMetadata:
     _, err = proc.communicate()
   bps = fps = num_images = width = height = rotation = None
   for line in err.split('\n'):
-    if match := re.search(r', bitrate: *([0-9.]+) kb/s', line):
+    if match := re.search(r', bitrate: *([\d.]+) kb/s', line):
       bps = int(match.group(1)) * 1000
-    if matches := re.findall(r'frame= *([0-9]+) ', line):
+    if matches := re.findall(r'frame= *(\d+) ', line):
       num_images = int(matches[-1])
     if 'Stream #0:' in line and ': Video:' in line:
-      if not (match := re.search(r', ([0-9]+)x([0-9]+)', line)):
+      if not (match := re.search(r', (\d+)x(\d+)', line)):
         raise RuntimeError(f'Unable to parse video dimensions in line {line}')
       width, height = int(match.group(1)), int(match.group(2))
-      if match := re.search(r', ([0-9.]+) fps', line):
+      if match := re.search(r', ([\d.]+) fps', line):
         fps = float(match.group(1))
       elif str(path).endswith('.gif'):
         # Some GIF files lack a framerate attribute; use a reasonable default.

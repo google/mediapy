@@ -63,6 +63,11 @@ ignore_missing_imports = true
 module = "mediapy_test"
 ignore_errors = true
 
+[[tool.mypy.overrides]]
+module = "mediapy_examples"
+disallow_untyped_calls = false
+disallow_untyped_defs = false
+
 [tool.pyink]
 # Formatting configuration to follow Google style-guide.
 line-length = 80
@@ -78,10 +83,12 @@ disable = [
     "too-few-public-methods", "too-many-locals", "too-many-instance-attributes",
     "too-many-branches", "too-many-statements", "too-many-arguments",
     "using-constant-test", "wrong-import-order", "use-dict-literal",
+    "missing-module-docstring",
 ]
 reports = false
 score = false
 recursive = true
+ignore-paths = [".*ipynb_checkpoints", "^.pytype", ".*/.pytype"]
 
 [tool.pylint.basic]
 good-names-rgxs = "^[a-z][a-z0-9]?|[A-Z]([A-Z_]*[A-Z])?$"
