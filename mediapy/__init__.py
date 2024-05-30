@@ -116,7 +116,7 @@ import io
 import itertools
 import math
 import numbers
-import os
+import os  # Package only needed for typing.TYPE_CHECKING.
 import pathlib
 import re
 import shlex
@@ -135,7 +135,6 @@ import numpy.typing as npt
 import PIL.Image
 import PIL.ImageOps
 
-_ = os  # Package only needed for typing.TYPE_CHECKING.
 
 if not hasattr(PIL.Image, 'Resampling'):  # Allow Pillow<9.0.
   PIL.Image.Resampling = PIL.Image  # type: ignore
@@ -189,7 +188,7 @@ else:
 
 _IPYTHON_HTML_SIZE_LIMIT = 20_000_000
 _T = typing.TypeVar('_T')
-_Path = typing.Union[str, 'os.PathLike[str]']
+_Path = typing.Union[str, os.PathLike[str]]
 
 _IMAGE_COMPARISON_HTML = """\
 <script
