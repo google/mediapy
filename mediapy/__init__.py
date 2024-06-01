@@ -842,7 +842,7 @@ def to_rgb(
     if hasattr(matplotlib, 'colormaps'):
       rgb_from_scalar: Any = matplotlib.colormaps[cmap]  # Newer version.
     else:
-      rgb_from_scalar = matplotlib.pyplot.cm.get_cmap(cmap)
+      rgb_from_scalar = matplotlib.pyplot.cm.get_cmap(cmap)  # pylint: disable=no-member
   else:
     rgb_from_scalar = cmap
   a = rgb_from_scalar(a)

@@ -421,7 +421,7 @@ class MediapyTest(parameterized.TestCase):
       if hasattr(matplotlib, 'colormaps'):
         cmap = matplotlib.colormaps['gray']  # Newer version.
       else:
-        cmap = matplotlib.pyplot.cm.get_cmap('gray')
+        cmap = matplotlib.pyplot.cm.get_cmap('gray')  # pylint: disable=no-member
       return cmap(x)[..., :3]
 
     self.assert_all_close(media.to_rgb(a), gray([0.0, 0.5, 1.0]))
