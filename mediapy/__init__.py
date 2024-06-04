@@ -104,7 +104,7 @@ with VideoReader(VIDEO) as r:
 from __future__ import annotations
 
 __docformat__ = 'google'
-__version__ = '1.2.1'
+__version__ = '1.2.2'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
@@ -188,7 +188,7 @@ else:
 
 _IPYTHON_HTML_SIZE_LIMIT = 20_000_000
 _T = typing.TypeVar('_T')
-_Path = typing.Union[str, os.PathLike[str]]
+_Path = typing.Union[str, 'os.PathLike[str]']
 
 _IMAGE_COMPARISON_HTML = """\
 <script
