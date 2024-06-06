@@ -33,7 +33,7 @@ repository = "https://github.com/google/mediapy"
 # Other: `documentation`, `changelog`
 
 [project.optional-dependencies]
-# Development deps (unittest, linting, formating,...)
+# Development deps (unittest, linting, formatting,...)
 # Installed through `pip install .[dev]`
 dev = [
     "absl-py",
