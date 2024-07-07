@@ -34,6 +34,7 @@
 
 # %%
 import itertools
+from typing import Any
 
 import matplotlib.pyplot as plt
 import mediapy as media
@@ -268,7 +269,7 @@ def analyze_image_rate_distortion(image, fmt='jpeg'):
   _, ax = plt.subplots(figsize=(10, 3.5))
   ax.plot(num_bytes, psnrs, 'o-', label=f'{fmt} (by quality parameter)')
   for x, y, param in zip(num_bytes, psnrs, params):
-    kwargs = dict(textcoords='offset points', xytext=(0, 10), ha='center')
+    kwargs: Any = dict(textcoords='offset points', xytext=(0, 10), ha='center')
     ax.annotate(f'{param}', (x, y), **kwargs)
 
   ax.set_title('Image rate-distortion')

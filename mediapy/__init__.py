@@ -606,7 +606,7 @@ def _pil_image(image: _ArrayLike, mode: str | None = None) -> PIL.Image.Image:
   image = _as_valid_media_array(image)
   if image.ndim not in (2, 3):
     raise ValueError(f'Image shape {image.shape} is neither 2D nor 3D.')
-  pil_image: PIL.Image.Image = PIL.Image.fromarray(image, mode=mode)  # type: ignore[no-untyped-call]
+  pil_image: PIL.Image.Image = PIL.Image.fromarray(image, mode=mode)
   return pil_image
 
 
@@ -842,7 +842,7 @@ def to_rgb(
     if hasattr(matplotlib, 'colormaps'):
       rgb_from_scalar: Any = matplotlib.colormaps[cmap]  # Newer version.
     else:
-      rgb_from_scalar = matplotlib.pyplot.cm.get_cmap(cmap)  # type: ignore # pylint: disable=no-member
+      rgb_from_scalar = matplotlib.pyplot.cm.get_cmap(cmap)  # pylint: disable=no-member
   else:
     rgb_from_scalar = cmap
   a = rgb_from_scalar(a)
@@ -883,7 +883,7 @@ def decompress_image(
       is inferred automatically.
     apply_exif_transpose: If True, rotate image according to EXIF orientation.
   """
-  pil_image = PIL.Image.open(io.BytesIO(data))
+  pil_image: PIL.Image.Image = PIL.Image.open(io.BytesIO(data))
   if apply_exif_transpose:
     tmp_image = PIL.ImageOps.exif_transpose(pil_image)  # Future: in_place=True.
     assert tmp_image
