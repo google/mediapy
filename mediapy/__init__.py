@@ -246,7 +246,7 @@ def _chunked(
 ) -> Iterator[tuple[_T, ...]]:
   """Returns elements collected as tuples of length at most `n` if not None."""
 
-  def take(n: int, iterable: Iterable[_T]) -> tuple[_T, ...]:
+  def take(n: int | None, iterable: Iterable[_T]) -> tuple[_T, ...]:
     return tuple(itertools.islice(iterable, n))
 
   return iter(functools.partial(take, n, iter(iterable)), ())
