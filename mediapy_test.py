@@ -175,8 +175,10 @@ class MediapyTest(parameterized.TestCase):
     # An array with data type 'uint64' is possible, but it is awkward to process
     # exactly because it requires more than float64 intermediate precision.
 
-  @parameterized.parameters(
-      zip(_TEST_TYPES + ['uint64', 'bool'], _TEST_TYPES, _TEST_SHAPES3)
+  @parameterized.product(
+      src_dtype=_TEST_TYPES + ['uint64', 'bool'],
+      dst_dtype=_TEST_TYPES,
+      shape=_TEST_SHAPES3,
   )
   def test_to_type_extreme_value(self, src_dtype, dst_dtype, shape):
     max_of_type = dict(
@@ -308,7 +310,7 @@ class MediapyTest(parameterized.TestCase):
     self.assert_all_equal(a.shape, (1, 2, 3))
     self.assert_all_equal(a, [[[10, 11, 12], [40, 41, 42]]])
 
-  @parameterized.parameters(zip(_TEST_TYPES, _TEST_SHAPES1))
+  @parameterized.product(str_dtype=_TEST_TYPES, shape=_TEST_SHAPES1)
   def test_resize_image(self, str_dtype, shape):
     dtype = np.dtype(str_dtype)
 
@@ -331,7 +333,7 @@ class MediapyTest(parameterized.TestCase):
         media.to_float01(new_image), media.to_float01(expected_image), atol=atol
     )
 
-  @parameterized.parameters(zip(_TEST_TYPES, _TEST_SHAPES2))
+  @parameterized.product(str_dtype=_TEST_TYPES, shape=_TEST_SHAPES2)
   def test_resize_video(self, str_dtype, shape):
     dtype = np.dtype(str_dtype)
 
