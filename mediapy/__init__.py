@@ -177,7 +177,7 @@ __all__ = [
 if typing.TYPE_CHECKING:
   _ArrayLike = npt.ArrayLike
   _DTypeLike = npt.DTypeLike
-  _NDArray = np.ndarray[Any, Any]
+  _NDArray = npt.NDArray[Any]
   _DType = np.dtype[Any]
 else:
   # Create named types for use in the `pdoc` documentation.
