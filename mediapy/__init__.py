@@ -1658,7 +1658,7 @@ class VideoWriter(_VideoIO):
       self._proc.wait()
       stderr = self._proc.stderr
       assert stderr is not None
-      s = stderr.read().decode()
+      s = stderr.read().decode('utf-8')
       raise RuntimeError(f"Error writing '{self.path}': {s}")
 
   def close(self) -> None:
@@ -1671,7 +1671,7 @@ class VideoWriter(_VideoIO):
       if self._proc.wait():
         stderr = self._proc.stderr
         assert stderr is not None
-        s = stderr.read().decode()
+        s = stderr.read().decode('utf-8')
         raise RuntimeError(f"Error writing '{self.path}': {s}")
       self._popen.__exit__(None, None, None)
       self._popen = None
