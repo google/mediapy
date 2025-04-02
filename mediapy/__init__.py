@@ -1067,7 +1067,7 @@ def show_images(
   ]
 
   def maybe_downsample(image: _NDArray) -> _NDArray:
-    shape: tuple[int, int] = image.shape[:2]  # type: ignore[assignment]
+    shape: tuple[int, int] = image.shape[:2]
     w, h = _get_width_height(width, height, shape)
     if w < shape[1] or h < shape[0]:
       image = resize_image(image, (h, w))
@@ -1741,7 +1741,7 @@ def write_video(path: _Path, images: Iterable[_NDArray], **kwargs: Any) -> None:
     **kwargs: Additional parameters for `VideoWriter`.
   """
   first_image, images = _peek_first(images)
-  shape: tuple[int, int] = first_image.shape[:2]  # type: ignore[assignment]
+  shape: tuple[int, int] = first_image.shape[:2]
   dtype = first_image.dtype
   if dtype == bool:
     dtype = np.dtype(np.uint8)
