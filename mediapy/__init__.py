@@ -104,7 +104,7 @@ with VideoReader(VIDEO) as r:
 from __future__ import annotations
 
 __docformat__ = 'google'
-__version__ = '1.2.2'
+__version__ = '1.2.3'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
@@ -1206,19 +1206,15 @@ def _get_video_metadata(path: _Path) -> VideoMetadata:
   """Returns attributes of video stored in the specified local file."""
   if not pathlib.Path(path).is_file():
     raise RuntimeError(f"Video file '{path}' is not found.")
-  command = [
-      _get_ffmpeg_path(),
-      '-nostdin',
-      '-i',
-      str(path),
-      '-acodec',
-      'copy',
-      '-vcodec',
-      'copy',
-      '-f',
-      'null',
-      '-',
-  ]
+  command = [_get_ffmpeg_path(), '-nostdin', '-i', str(path)]
+
+  older_ffmpeg_version = False
+  if older_ffmpeg_version:  # Avoids frame decoding.
+    command += ['-acodec', 'copy', '-vcodec', 'copy']
+  else:  # Necessary to get "frame= *(\d+)" using newer ffmpeg versions.
+    command += ['-acodec', 'copy', '-vf', 'select=1', '-vsync', '0']
+
+  command += ['-f', 'null', '-']
   with subprocess.Popen(
       command, stderr=subprocess.PIPE, encoding='utf-8'
   ) as proc:
