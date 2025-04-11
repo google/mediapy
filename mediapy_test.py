@@ -175,8 +175,10 @@ class MediapyTest(parameterized.TestCase):
     # An array with data type 'uint64' is possible, but it is awkward to process
     # exactly because it requires more than float64 intermediate precision.
 
-  @parameterized.parameters(
-      zip(_TEST_TYPES + ['uint64', 'bool'], _TEST_TYPES, _TEST_SHAPES3)
+  @parameterized.product(
+      src_dtype=_TEST_TYPES + ['uint64', 'bool'],
+      dst_dtype=_TEST_TYPES,
+      shape=_TEST_SHAPES3,
   )
   def test_to_type_extreme_value(self, src_dtype, dst_dtype, shape):
     max_of_type = dict(
@@ -308,7 +310,7 @@ class MediapyTest(parameterized.TestCase):
     self.assert_all_equal(a.shape, (1, 2, 3))
     self.assert_all_equal(a, [[[10, 11, 12], [40, 41, 42]]])
 
-  @parameterized.parameters(zip(_TEST_TYPES, _TEST_SHAPES1))
+  @parameterized.product(str_dtype=_TEST_TYPES, shape=_TEST_SHAPES1)
   def test_resize_image(self, str_dtype, shape):
     dtype = np.dtype(str_dtype)
 
@@ -331,7 +333,7 @@ class MediapyTest(parameterized.TestCase):
         media.to_float01(new_image), media.to_float01(expected_image), atol=atol
     )
 
-  @parameterized.parameters(zip(_TEST_TYPES, _TEST_SHAPES2))
+  @parameterized.product(str_dtype=_TEST_TYPES, shape=_TEST_SHAPES2)
   def test_resize_video(self, str_dtype, shape):
     dtype = np.dtype(str_dtype)
 
@@ -643,8 +645,11 @@ class MediapyTest(parameterized.TestCase):
       new_video = media.read_video(path, dtype=np.uint16, output_format='gray')
     self.assertEqual(new_video.dtype, np.uint16)
     value_1_of_10bit_encoded_in_16bits = 64
+    # This factor may need to be raised in some recent versions of ffmpeg due
+    # to scaling issues on 10-bit <> 16-bit conversions.
+    factor = 0.8
     self._check_similar(
-        video, new_video, max_rms=value_1_of_10bit_encoded_in_16bits * 0.8
+        video, new_video, max_rms=value_1_of_10bit_encoded_in_16bits * factor
     )
 
   def test_video_read_write_vp9(self):

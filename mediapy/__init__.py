@@ -104,7 +104,7 @@ with VideoReader(VIDEO) as r:
 from __future__ import annotations
 
 __docformat__ = 'google'
-__version__ = '1.2.2'
+__version__ = '1.2.3'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
@@ -177,7 +177,7 @@ __all__ = [
 if typing.TYPE_CHECKING:
   _ArrayLike = npt.ArrayLike
   _DTypeLike = npt.DTypeLike
-  _NDArray = np.ndarray[Any, Any]
+  _NDArray = npt.NDArray[Any]
   _DType = np.dtype[Any]
 else:
   # Create named types for use in the `pdoc` documentation.
@@ -246,7 +246,7 @@ def _chunked(
 ) -> Iterator[tuple[_T, ...]]:
   """Returns elements collected as tuples of length at most `n` if not None."""
 
-  def take(n: int, iterable: Iterable[_T]) -> tuple[_T, ...]:
+  def take(n: int | None, iterable: Iterable[_T]) -> tuple[_T, ...]:
     return tuple(itertools.islice(iterable, n))
 
   return iter(functools.partial(take, n, iter(iterable)), ())
@@ -606,7 +606,7 @@ def _pil_image(image: _ArrayLike, mode: str | None = None) -> PIL.Image.Image:
   image = _as_valid_media_array(image)
   if image.ndim not in (2, 3):
     raise ValueError(f'Image shape {image.shape} is neither 2D nor 3D.')
-  pil_image: PIL.Image.Image = PIL.Image.fromarray(image, mode=mode)  # type: ignore[no-untyped-call]
+  pil_image: PIL.Image.Image = PIL.Image.fromarray(image, mode=mode)
   return pil_image
 
 
@@ -842,7 +842,7 @@ def to_rgb(
     if hasattr(matplotlib, 'colormaps'):
       rgb_from_scalar: Any = matplotlib.colormaps[cmap]  # Newer version.
     else:
-      rgb_from_scalar = matplotlib.pyplot.cm.get_cmap(cmap)  # type: ignore # pylint: disable=no-member
+      rgb_from_scalar = matplotlib.pyplot.cm.get_cmap(cmap)  # pylint: disable=no-member
   else:
     rgb_from_scalar = cmap
   a = rgb_from_scalar(a)
@@ -883,7 +883,7 @@ def decompress_image(
       is inferred automatically.
     apply_exif_transpose: If True, rotate image according to EXIF orientation.
   """
-  pil_image = PIL.Image.open(io.BytesIO(data))
+  pil_image: PIL.Image.Image = PIL.Image.open(io.BytesIO(data))
   if apply_exif_transpose:
     tmp_image = PIL.ImageOps.exif_transpose(pil_image)  # Future: in_place=True.
     assert tmp_image
@@ -1067,7 +1067,7 @@ def show_images(
   ]
 
   def maybe_downsample(image: _NDArray) -> _NDArray:
-    shape: tuple[int, int] = image.shape[:2]  # type: ignore[assignment]
+    shape: tuple[int, int] = image.shape[:2]
     w, h = _get_width_height(width, height, shape)
     if w < shape[1] or h < shape[0]:
       image = resize_image(image, (h, w))
@@ -1213,8 +1213,12 @@ def _get_video_metadata(path: _Path) -> VideoMetadata:
       str(path),
       '-acodec',
       'copy',
-      '-vcodec',
-      'copy',
+      # Necessary to get "frame= *(\d+)" using newer ffmpeg versions.
+      # Previously, was `'-vcodec', 'copy'`
+      '-vf',
+      'select=1',
+      '-vsync',
+      '0',
       '-f',
       'null',
       '-',
@@ -1658,7 +1662,7 @@ class VideoWriter(_VideoIO):
       self._proc.wait()
       stderr = self._proc.stderr
       assert stderr is not None
-      s = stderr.read().decode()
+      s = stderr.read().decode('utf-8')
       raise RuntimeError(f"Error writing '{self.path}': {s}")
 
   def close(self) -> None:
@@ -1671,7 +1675,7 @@ class VideoWriter(_VideoIO):
       if self._proc.wait():
         stderr = self._proc.stderr
         assert stderr is not None
-        s = stderr.read().decode()
+        s = stderr.read().decode('utf-8')
         raise RuntimeError(f"Error writing '{self.path}': {s}")
       self._popen.__exit__(None, None, None)
       self._popen = None
@@ -1741,7 +1745,7 @@ def write_video(path: _Path, images: Iterable[_NDArray], **kwargs: Any) -> None:
     **kwargs: Additional parameters for `VideoWriter`.
   """
   first_image, images = _peek_first(images)
-  shape: tuple[int, int] = first_image.shape[:2]  # type: ignore[assignment]
+  shape: tuple[int, int] = first_image.shape[:2]
   dtype = first_image.dtype
   if dtype == bool:
     dtype = np.dtype(np.uint8)
