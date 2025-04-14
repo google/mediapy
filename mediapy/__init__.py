@@ -228,10 +228,10 @@ def _path_is_local(path: _Path) -> bool:
   return True
 
 
-def _search_for_ffmpeg_path() -> list[str] | None:
+def _search_for_ffmpeg_path() -> str | None:
   """Returns a path to the ffmpeg program, or None if not found."""
   if filename := shutil.which(_config.ffmpeg_name_or_path):
-    return [str(filename)]
+    return str(filename)
   return None
 
 
@@ -1164,7 +1164,7 @@ def _filename_suffix_from_codec(codec: str) -> str:
   return '.gif' if codec == 'gif' else '.mp4'
 
 
-def _get_ffmpeg_path() -> list[str]:
+def _get_ffmpeg_path() -> str:
   path = _search_for_ffmpeg_path()
   if not path:
     raise RuntimeError(
@@ -1206,9 +1206,8 @@ def _get_video_metadata(path: _Path) -> VideoMetadata:
   """Returns attributes of video stored in the specified local file."""
   if not pathlib.Path(path).is_file():
     raise RuntimeError(f"Video file '{path}' is not found.")
-
   command = [
-      *_get_ffmpeg_path(),
+      _get_ffmpeg_path(),
       '-nostdin',
       '-i',
       str(path),
@@ -1348,6 +1347,7 @@ class VideoReader(_VideoIO):
     self._proc: subprocess.Popen[bytes] | None = None
 
   def __enter__(self) -> 'VideoReader':
+    ffmpeg_path = _get_ffmpeg_path()
     try:
       self._read_via_local_file = _read_via_local_file(self.path_or_url)
       # pylint: disable-next=no-member
@@ -1363,7 +1363,7 @@ class VideoReader(_VideoIO):
       )
 
       command = [
-          *_get_ffmpeg_path(),
+          ffmpeg_path,
           '-v',
           'panic',
           '-nostdin',
@@ -1572,6 +1572,7 @@ class VideoWriter(_VideoIO):
     self._proc: subprocess.Popen[bytes] | None = None
 
   def __enter__(self) -> 'VideoWriter':
+    ffmpeg_path = _get_ffmpeg_path()
     input_pix_fmt = self._get_pix_fmt(self.dtype, self.input_format)
     try:
       self._write_via_local_file = _write_via_local_file(self.path)
@@ -1583,7 +1584,7 @@ class VideoWriter(_VideoIO):
       height, width = self.shape
       command = (
           [
-              *_get_ffmpeg_path(),
+              ffmpeg_path,
               '-v',
               'error',
               '-f',
