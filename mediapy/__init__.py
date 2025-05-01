@@ -104,7 +104,7 @@ with VideoReader(VIDEO) as r:
 from __future__ import annotations
 
 __docformat__ = 'google'
-__version__ = '1.2.3'
+__version__ = '1.2.4'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
@@ -1228,12 +1228,15 @@ def _get_video_metadata(path: _Path) -> VideoMetadata:
   ) as proc:
     _, err = proc.communicate()
   bps = fps = num_images = width = height = rotation = None
+  before_output_info = True
   for line in err.split('\n'):
+    if line.startswith('Output '):
+      before_output_info = False
     if match := re.search(r', bitrate: *([\d.]+) kb/s', line):
       bps = int(match.group(1)) * 1000
     if matches := re.findall(r'frame= *(\d+) ', line):
       num_images = int(matches[-1])
-    if 'Stream #0:' in line and ': Video:' in line:
+    if 'Stream #0:' in line and ': Video:' in line and before_output_info:
       if not (match := re.search(r', (\d+)x(\d+)', line)):
         raise RuntimeError(f'Unable to parse video dimensions in line {line}')
       width, height = int(match.group(1)), int(match.group(2))
