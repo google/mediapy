@@ -1,4 +1,4 @@
-# Copyright 2024 The mediapy Authors.
+# Copyright 2025 The mediapy Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1161,7 +1161,12 @@ def compare_images(
 
 
 def _filename_suffix_from_codec(codec: str) -> str:
-  return '.gif' if codec == 'gif' else '.mp4'
+  if codec == 'gif':
+    return '.gif'
+  elif codec == 'vp9':
+    return '.webm'
+
+  return '.mp4'
 
 
 def _get_ffmpeg_path() -> str:
@@ -1765,7 +1770,8 @@ def compress_video(
 ) -> bytes:
   """Returns a buffer containing a compressed video.
 
-  The video container is 'mp4' except when `codec` is 'gif'.
+  The video container is 'gif' for 'gif' codec, 'webm' for 'vp9' codec,
+  and mp4 otherwise.
 
   >>> video = read_video('/tmp/river.mp4')
   >>> data = compress_video(video, bps=10_000_000)
