@@ -1322,6 +1322,7 @@ class VideoReader(_VideoIO):
     fps: The framerate in frames per second.
     bps: The estimated bitrate of the video stream in bits per second, retrieved
       from the video header.
+    stream_index: The stream index to read from. The default is 0.
   """
 
   path_or_url: _Path
@@ -1332,12 +1333,14 @@ class VideoReader(_VideoIO):
   shape: tuple[int, int]
   fps: float
   bps: int | None
+  stream_index: int
   _num_bytes_per_image: int
 
   def __init__(
       self,
       path_or_url: _Path,
       *,
+      stream_index: int = 0,
       output_format: str = 'rgb',
       dtype: _DTypeLike = np.uint8,
   ):
@@ -1347,6 +1350,7 @@ class VideoReader(_VideoIO):
       )
     self.path_or_url = path_or_url
     self.output_format = output_format
+    self.stream_index = stream_index
     self.dtype = np.dtype(dtype)
     if self.dtype.type not in (np.uint8, np.uint16):
       raise ValueError(f'Type {dtype} is not np.uint8 or np.uint16.')
@@ -1381,6 +1385,8 @@ class VideoReader(_VideoIO):
           'rawvideo',
           '-f',
           'image2pipe',
+          '-map',
+          f'0:v:{self.stream_index}',
           '-pix_fmt',
           pix_fmt,
           '-vsync',
