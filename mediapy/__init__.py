@@ -1179,76 +1179,6 @@ def _get_ffmpeg_path() -> str:
   return path
 
 
-@typing.overload
-def _run_ffmpeg(
-    ffmpeg_args: Sequence[str],
-    stdin: int | None = None,
-    stdout: int | None = None,
-    stderr: int | None = None,
-    encoding: None = None,  # No encoding -> bytes
-    allowed_input_files: Sequence[str] | None = None,
-    allowed_output_files: Sequence[str] | None = None,
-) -> subprocess.Popen[bytes]:
-  ...
-
-
-@typing.overload
-def _run_ffmpeg(
-    ffmpeg_args: Sequence[str],
-    stdin: int | None = None,
-    stdout: int | None = None,
-    stderr: int | None = None,
-    encoding: str = ...,  # Encoding -> str
-    allowed_input_files: Sequence[str] | None = None,
-    allowed_output_files: Sequence[str] | None = None,
-) -> subprocess.Popen[str]:
-  ...
-
-
-# Only typing.override should have typing annotations
-def _run_ffmpeg(
-    ffmpeg_args,
-    stdin=None,
-    stdout=None,
-    stderr=None,
-    encoding=None,
-    allowed_input_files=None,
-    allowed_output_files=None,
-):
-  """Runs ffmpeg with the given args.
-
-  Args:
-    ffmpeg_args: The args to pass to ffmpeg.
-    stdin: Same as in `subprocess.Popen`.
-    stdout: Same as in `subprocess.Popen`.
-    stderr: Same as in `subprocess.Popen`.
-    encoding: Same as in `subprocess.Popen`.
-    allowed_input_files: The input files to allow for ffmpeg.
-    allowed_output_files: The output files to allow for ffmpeg.
-
-  Returns:
-    The subprocess.Popen object with running ffmpeg process.
-  """
-  argv = []
-  env = {}
-
-  # Allowed input and output files are not supported in open source.
-  del allowed_input_files
-  del allowed_output_files
-
-  argv.append(_get_ffmpeg_path())
-  argv.extend(ffmpeg_args)
-
-  return subprocess.Popen(
-      argv,
-      stdin=stdin,
-      stdout=stdout,
-      stderr=stderr,
-      encoding=encoding,
-      env=env,
-  )
-
-
 def video_is_available() -> bool:
   """Returns True if the program `ffmpeg` is found.
 
@@ -1281,8 +1211,8 @@ def _get_video_metadata(path: _Path) -> VideoMetadata:
   """Returns attributes of video stored in the specified local file."""
   if not pathlib.Path(path).is_file():
     raise RuntimeError(f"Video file '{path}' is not found.")
-
   command = [
+      _get_ffmpeg_path(),
       '-nostdin',
       '-i',
       str(path),
@@ -1298,11 +1228,8 @@ def _get_video_metadata(path: _Path) -> VideoMetadata:
       'null',
       '-',
   ]
-  with _run_ffmpeg(
-      command,
-      allowed_input_files=[str(path)],
-      stderr=subprocess.PIPE,
-      encoding='utf-8',
+  with subprocess.Popen(
+      command, stderr=subprocess.PIPE, encoding='utf-8'
   ) as proc:
     _, err = proc.communicate()
   bps = fps = num_images = width = height = rotation = None
@@ -1432,6 +1359,7 @@ class VideoReader(_VideoIO):
     self._proc: subprocess.Popen[bytes] | None = None
 
   def __enter__(self) -> 'VideoReader':
+    ffmpeg_path = _get_ffmpeg_path()
     try:
       self._read_via_local_file = _read_via_local_file(self.path_or_url)
       # pylint: disable-next=no-member
@@ -1447,6 +1375,7 @@ class VideoReader(_VideoIO):
       )
 
       command = [
+          ffmpeg_path,
           '-v',
           'panic',
           '-nostdin',
@@ -1464,11 +1393,8 @@ class VideoReader(_VideoIO):
           'vfr',
           '-',
       ]
-      self._popen = _run_ffmpeg(
-          command,
-          stdout=subprocess.PIPE,
-          stderr=subprocess.PIPE,
-          allowed_input_files=[tmp_name],
+      self._popen = subprocess.Popen(
+          command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
       )
       self._proc = self._popen.__enter__()
     except Exception:
@@ -1660,6 +1586,7 @@ class VideoWriter(_VideoIO):
     self._proc: subprocess.Popen[bytes] | None = None
 
   def __enter__(self) -> 'VideoWriter':
+    ffmpeg_path = _get_ffmpeg_path()
     input_pix_fmt = self._get_pix_fmt(self.dtype, self.input_format)
     try:
       self._write_via_local_file = _write_via_local_file(self.path)
@@ -1671,6 +1598,7 @@ class VideoWriter(_VideoIO):
       height, width = self.shape
       command = (
           [
+              ffmpeg_path,
               '-v',
               'error',
               '-f',
@@ -1695,11 +1623,8 @@ class VideoWriter(_VideoIO):
           + self.ffmpeg_args
           + ['-y', tmp_name]
       )
-      self._popen = _run_ffmpeg(
-          command,
-          stdin=subprocess.PIPE,
-          stderr=subprocess.PIPE,
-          allowed_output_files=[tmp_name],
+      self._popen = subprocess.Popen(
+          command, stdin=subprocess.PIPE, stderr=subprocess.PIPE
       )
       self._proc = self._popen.__enter__()
     except Exception:
