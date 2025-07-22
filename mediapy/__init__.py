@@ -127,6 +127,7 @@ import tempfile
 import typing
 from typing import Any
 import urllib.request
+import warnings
 
 import IPython.display
 import matplotlib.pyplot
@@ -1231,12 +1232,13 @@ def _run_ffmpeg(
   """
   argv = []
   env = {}
+  ffmpeg_path = _get_ffmpeg_path()
 
   # Allowed input and output files are not supported in open source.
   del allowed_input_files
   del allowed_output_files
 
-  argv.append(_get_ffmpeg_path())
+  argv.append(ffmpeg_path)
   argv.extend(ffmpeg_args)
 
   return subprocess.Popen(
