@@ -846,7 +846,7 @@ def to_rgb(
       rgb_from_scalar = matplotlib.pyplot.cm.get_cmap(cmap)  # pylint: disable=no-member
   else:
     rgb_from_scalar = cmap
-  a = rgb_from_scalar(a)
+  a = typing.cast(_NDArray, rgb_from_scalar(a))
   # If there is a fully opaque alpha channel, remove it.
   if a.shape[-1] == 4 and np.all(to_float01(a[..., 3])) == 1.0:
     a = a[..., :3]
@@ -1164,7 +1164,7 @@ def compare_images(
 def _filename_suffix_from_codec(codec: str) -> str:
   if codec == 'gif':
     return '.gif'
-  elif codec == 'vp9':
+  if codec == 'vp9':
     return '.webm'
 
   return '.mp4'
@@ -1206,16 +1206,15 @@ def _run_ffmpeg(
   ...
 
 
-# Only typing.override should have typing annotations
 def _run_ffmpeg(
-    ffmpeg_args,
-    stdin=None,
-    stdout=None,
-    stderr=None,
-    encoding=None,
-    allowed_input_files=None,
-    allowed_output_files=None,
-):
+    ffmpeg_args: Sequence[str],
+    stdin: int | None = None,
+    stdout: int | None = None,
+    stderr: int | None = None,
+    encoding: str | None = None,
+    allowed_input_files: Sequence[str] | None = None,
+    allowed_output_files: Sequence[str] | None = None,
+) -> subprocess.Popen[bytes] | subprocess.Popen[str]:
   """Runs ffmpeg with the given args.
 
   Args:
@@ -1231,7 +1230,7 @@ def _run_ffmpeg(
     The subprocess.Popen object with running ffmpeg process.
   """
   argv = []
-  env = {}
+  env: Any = {}
   ffmpeg_path = _get_ffmpeg_path()
 
   # Allowed input and output files are not supported in open source.
