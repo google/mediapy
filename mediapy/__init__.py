@@ -127,7 +127,7 @@ import tempfile
 import typing
 from typing import Any
 import urllib.request
-import warnings
+import warnings  # noqa
 
 import IPython.display
 import matplotlib.pyplot
