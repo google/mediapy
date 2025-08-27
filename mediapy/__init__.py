@@ -681,7 +681,9 @@ def read_contents(path_or_url: _Path) -> bytes:
   data: bytes
   if _is_url(path_or_url):
     assert isinstance(path_or_url, str)
-    with urllib.request.urlopen(path_or_url) as response:
+    headers = {'User-Agent': 'Chrome'}
+    request = urllib.request.Request(path_or_url, headers=headers)
+    with urllib.request.urlopen(request) as response:
       data = response.read()
   else:
     with _open(path_or_url, 'rb') as f:
@@ -1068,7 +1070,7 @@ def show_images(
   ]
 
   def maybe_downsample(image: _NDArray) -> _NDArray:
-    shape: tuple[int, int] = image.shape[:2]
+    shape = image.shape[0], image.shape[1]
     w, h = _get_width_height(width, height, shape)
     if w < shape[1] or h < shape[0]:
       image = resize_image(image, (h, w))
@@ -1835,7 +1837,7 @@ def write_video(path: _Path, images: Iterable[_NDArray], **kwargs: Any) -> None:
     **kwargs: Additional parameters for `VideoWriter`.
   """
   first_image, images = _peek_first(images)
-  shape: tuple[int, int] = first_image.shape[:2]
+  shape = first_image.shape[0], first_image.shape[1]
   dtype = first_image.dtype
   if dtype == bool:
     dtype = np.dtype(np.uint8)
