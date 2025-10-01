@@ -1600,9 +1600,10 @@ class VideoWriter(_VideoIO):
     bps = int(bps) if bps is not None else None
     if bps is not None and bps <= 0:
       raise ValueError(f'Bitrate value {bps} is invalid.')
-    if qp is not None and (not isinstance(qp, int) or qp <= 0):
+    if qp is not None and (not isinstance(qp, int) or qp < 0):
       raise ValueError(
-          f'Quantization parameter {qp} is not a positive integer.'
+          f'Quantization parameter {qp} cannot be negative. It must be a'
+          ' non-negative integer.'
       )
     num_rate_specifications = sum(x is not None for x in (bps, qp, crf))
     if num_rate_specifications > 1:
