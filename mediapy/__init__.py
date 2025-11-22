@@ -127,7 +127,7 @@ import tempfile
 import typing
 from typing import Any
 import urllib.request
-import warnings  # noqa
+import warnings
 
 import IPython.display
 import matplotlib.pyplot
@@ -187,7 +187,7 @@ else:
   _NDArray = typing.TypeVar('_NDArray')
   _DType = typing.TypeVar('_DType')  # pylint: disable=invalid-name
 
-_IPYTHON_HTML_SIZE_LIMIT = 20_000_000
+_IPYTHON_HTML_SIZE_LIMIT = 10**10  # Unlimited seems to be OK now.
 _T = typing.TypeVar('_T')
 _Path = typing.Union[str, 'os.PathLike[str]']
 
@@ -1113,6 +1113,7 @@ def show_images(
 
   s = html_from_compressed_images()
   while len(s) > _IPYTHON_HTML_SIZE_LIMIT * 0.5:
+    warnings.warn('mediapy: subsampling images to reduce HTML size')
     list_images = [image[::2, ::2] for image in list_images]
     png_datas = [compress_image(to_uint8(image)) for image in list_images]
     s = html_from_compressed_images()
