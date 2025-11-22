@@ -551,26 +551,30 @@ class MediapyTest(parameterized.TestCase):
     self.assertLen(re.findall('(?s)base64', htmls[0].data), 2)
     self.assertEmpty(re.findall('(?s)b64', htmls[0].data))
 
-  @parameterized.parameters(False, True)
-  def test_video_non_streaming_write_read_roundtrip(self, use_generator):
+  @parameterized.parameters([False, True], [False, True])
+  def test_video_non_streaming_write_read_roundtrip(
+      self, use_generator, lossless
+  ):
     shape = 240, 320
     num_images = 10
     fps = 40
-    qp = 20
+    qp = 0 if lossless else 20
+    codec = 'libx264rgb' if lossless else 'h264'
+    max_rms = 1e-8 if lossless else 3.0
     original_video = media.to_uint8(media.moving_circle(shape, num_images))
     video = (
         (image for image in original_video) if use_generator else original_video
     )
     with tempfile.TemporaryDirectory() as directory_name:
       tmp_path = pathlib.Path(directory_name) / 'test.mp4'
-      media.write_video(tmp_path, video, fps=fps, qp=qp)
+      media.write_video(tmp_path, video, fps=fps, qp=qp, codec=codec)
       new_video = media.read_video(tmp_path)
       assert new_video.metadata
       self.assertEqual(new_video.metadata.num_images, num_images)
       self.assertEqual(new_video.metadata.shape, shape)
       self.assertEqual(new_video.metadata.fps, fps)
       self.assertGreater(new_video.metadata.bps, 1_000)
-      self._check_similar(original_video, new_video, 3.0)
+      self._check_similar(original_video, new_video, max_rms)
 
   def test_video_streaming_write_read_roundtrip(self):
     shape = 62, 744
