@@ -56,6 +56,7 @@ aggressive = 3
 recursive = true
 
 [tool.mypy]
+cache_dir = "~/.cache/mypy"
 strict = true
 ignore_missing_imports = true
 
@@ -82,6 +83,7 @@ disable = [
     "unspecified-encoding", "line-too-long", "too-many-lines",
     "too-few-public-methods", "too-many-locals", "too-many-instance-attributes",
     "too-many-branches", "too-many-statements", "too-many-arguments",
+    "too-many-positional-arguments",
     "using-constant-test", "wrong-import-order", "use-dict-literal",
     "missing-module-docstring",
 ]

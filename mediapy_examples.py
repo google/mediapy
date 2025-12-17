@@ -155,7 +155,7 @@ media.show_video(media.read_video(new_file), height=90)
 # %%
 # Show multiple videos side-by-side.
 s = 90
-videos = {
+videos: Any = {
     'mirror loop': np.concatenate([video3, video3[::-1]], axis=0),
     'roll': (np.roll(media.color_ramp((s, s)), i, axis=0) for i in range(s)),
     'fade': (np.full((s, s), f) for f in np.linspace(0.0, 1.0, 50)),

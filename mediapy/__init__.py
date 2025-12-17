@@ -104,7 +104,7 @@ with VideoReader(VIDEO) as r:
 from __future__ import annotations
 
 __docformat__ = 'google'
-__version__ = '1.2.4'
+__version__ = '1.2.5'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
@@ -187,7 +187,7 @@ else:
   _NDArray = typing.TypeVar('_NDArray')
   _DType = typing.TypeVar('_DType')  # pylint: disable=invalid-name
 
-_IPYTHON_HTML_SIZE_LIMIT = 20_000_000
+_IPYTHON_HTML_SIZE_LIMIT = 10**10  # Unlimited seems to be OK now.
 _T = typing.TypeVar('_T')
 _Path = typing.Union[str, 'os.PathLike[str]']
 
@@ -681,7 +681,9 @@ def read_contents(path_or_url: _Path) -> bytes:
   data: bytes
   if _is_url(path_or_url):
     assert isinstance(path_or_url, str)
-    with urllib.request.urlopen(path_or_url) as response:
+    headers = {'User-Agent': 'Chrome'}
+    request = urllib.request.Request(path_or_url, headers=headers)
+    with urllib.request.urlopen(request) as response:
       data = response.read()
   else:
     with _open(path_or_url, 'rb') as f:
@@ -846,7 +848,7 @@ def to_rgb(
       rgb_from_scalar = matplotlib.pyplot.cm.get_cmap(cmap)  # pylint: disable=no-member
   else:
     rgb_from_scalar = cmap
-  a = rgb_from_scalar(a)
+  a = typing.cast(_NDArray, rgb_from_scalar(a))
   # If there is a fully opaque alpha channel, remove it.
   if a.shape[-1] == 4 and np.all(to_float01(a[..., 3])) == 1.0:
     a = a[..., :3]
@@ -1068,7 +1070,7 @@ def show_images(
   ]
 
   def maybe_downsample(image: _NDArray) -> _NDArray:
-    shape: tuple[int, int] = image.shape[:2]
+    shape = image.shape[0], image.shape[1]
     w, h = _get_width_height(width, height, shape)
     if w < shape[1] or h < shape[0]:
       image = resize_image(image, (h, w))
@@ -1111,6 +1113,7 @@ def show_images(
 
   s = html_from_compressed_images()
   while len(s) > _IPYTHON_HTML_SIZE_LIMIT * 0.5:
+    warnings.warn('mediapy: subsampling images to reduce HTML size')
     list_images = [image[::2, ::2] for image in list_images]
     png_datas = [compress_image(to_uint8(image)) for image in list_images]
     s = html_from_compressed_images()
@@ -1164,7 +1167,7 @@ def compare_images(
 def _filename_suffix_from_codec(codec: str) -> str:
   if codec == 'gif':
     return '.gif'
-  elif codec == 'vp9':
+  if codec == 'vp9':
     return '.webm'
 
   return '.mp4'
@@ -1206,16 +1209,15 @@ def _run_ffmpeg(
   ...
 
 
-# Only typing.override should have typing annotations
 def _run_ffmpeg(
-    ffmpeg_args,
-    stdin=None,
-    stdout=None,
-    stderr=None,
-    encoding=None,
-    allowed_input_files=None,
-    allowed_output_files=None,
-):
+    ffmpeg_args: Sequence[str],
+    stdin: int | None = None,
+    stdout: int | None = None,
+    stderr: int | None = None,
+    encoding: str | None = None,
+    allowed_input_files: Sequence[str] | None = None,
+    allowed_output_files: Sequence[str] | None = None,
+) -> subprocess.Popen[bytes] | subprocess.Popen[str]:
   """Runs ffmpeg with the given args.
 
   Args:
@@ -1231,7 +1233,7 @@ def _run_ffmpeg(
     The subprocess.Popen object with running ffmpeg process.
   """
   argv = []
-  env = {}
+  env: Any = {}
   ffmpeg_path = _get_ffmpeg_path()
 
   # Allowed input and output files are not supported in open source.
@@ -1837,7 +1839,7 @@ def write_video(path: _Path, images: Iterable[_NDArray], **kwargs: Any) -> None:
     **kwargs: Additional parameters for `VideoWriter`.
   """
   first_image, images = _peek_first(images)
-  shape: tuple[int, int] = first_image.shape[:2]
+  shape = first_image.shape[0], first_image.shape[1]
   dtype = first_image.dtype
   if dtype == bool:
     dtype = np.dtype(np.uint8)
