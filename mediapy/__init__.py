@@ -1233,7 +1233,6 @@ def _run_ffmpeg(
     The subprocess.Popen object with running ffmpeg process.
   """
   argv = []
-  env: Any = {}
   ffmpeg_path = _get_ffmpeg_path()
 
   # Allowed input and output files are not supported in open source.
@@ -1249,7 +1248,6 @@ def _run_ffmpeg(
       stdout=stdout,
       stderr=stderr,
       encoding=encoding,
-      env=env,
   )
 
 
