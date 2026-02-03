@@ -104,7 +104,7 @@ with VideoReader(VIDEO) as r:
 from __future__ import annotations
 
 __docformat__ = 'google'
-__version__ = '1.2.5'
+__version__ = '1.2.6'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
@@ -1233,7 +1233,9 @@ def _run_ffmpeg(
     The subprocess.Popen object with running ffmpeg process.
   """
   argv = []
-  env: Any = {}
+  # In open source, keep env=None to preserve default behavior.
+  # Context: https://github.com/google/mediapy/pull/62
+  env: Any = None  # pylint: disable=unused-variable
   ffmpeg_path = _get_ffmpeg_path()
 
   # Allowed input and output files are not supported in open source.
