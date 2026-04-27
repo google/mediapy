@@ -765,11 +765,11 @@ class set_show_save_dir:  # pylint: disable=invalid-name
 # ** Image I/O.
 
 
-def read_image(
+def read_image(  # pyrefly: ignore[bad-function-definition]
     path_or_url: _Path,
     *,
     apply_exif_transpose: bool = True,
-    dtype: _DTypeLike = None,  # pyrefly: ignore[bad-function-definition]
+    dtype: _DTypeLike | None = None,
 ) -> _NDArray:
   """Returns an image read from a file path or URL.
 
@@ -840,7 +840,7 @@ def to_rgb(
   # vmax = np.amax(a, where=np.isfinite(a)) if vmax is None else vmax
   vmin = np.amin(np.where(np.isfinite(a), a, np.inf)) if vmin is None else vmin
   vmax = np.amax(np.where(np.isfinite(a), a, -np.inf)) if vmax is None else vmax
-  a = (a.astype('float') - vmin) / (vmax - vmin + np.finfo(float).eps)
+  a = (a.astype('float') - vmin) / (vmax - vmin + np.finfo(float).eps)  # pylint: disable=no-member
   if isinstance(cmap, str):
     if hasattr(matplotlib, 'colormaps'):
       rgb_from_scalar: Any = matplotlib.colormaps[cmap]  # Newer version.
@@ -872,8 +872,10 @@ def compress_image(
     return output.getvalue()
 
 
-def decompress_image(
-    data: bytes, dtype: _DTypeLike = None, apply_exif_transpose: bool = True  # pyrefly: ignore[bad-function-definition]
+def decompress_image(  # pyrefly: ignore[bad-function-definition]
+    data: bytes,
+    dtype: _DTypeLike | None = None,
+    apply_exif_transpose: bool = True,
 ) -> _NDArray:
   """Returns an image from a compressed data buffer.
 
