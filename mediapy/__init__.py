@@ -1,4 +1,4 @@
-# Copyright 2025 The mediapy Authors.
+# Copyright 2026 The mediapy Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1192,6 +1192,7 @@ def _run_ffmpeg(
     encoding: None = None,  # No encoding -> bytes
     allowed_input_files: Sequence[str] | None = None,
     allowed_output_files: Sequence[str] | None = None,
+    sandbox_max_run_time_secs: int | None = None,
 ) -> subprocess.Popen[bytes]:
   ...
 
@@ -1205,6 +1206,7 @@ def _run_ffmpeg(
     encoding: str = ...,  # Encoding -> str
     allowed_input_files: Sequence[str] | None = None,
     allowed_output_files: Sequence[str] | None = None,
+    sandbox_max_run_time_secs: int | None = None,
 ) -> subprocess.Popen[str]:
   ...
 
@@ -1217,6 +1219,7 @@ def _run_ffmpeg(
     encoding: str | None = None,
     allowed_input_files: Sequence[str] | None = None,
     allowed_output_files: Sequence[str] | None = None,
+    sandbox_max_run_time_secs: int | None = None,
 ) -> subprocess.Popen[bytes] | subprocess.Popen[str]:
   """Runs ffmpeg with the given args.
 
@@ -1228,6 +1231,8 @@ def _run_ffmpeg(
     encoding: Same as in `subprocess.Popen`.
     allowed_input_files: The input files to allow for ffmpeg.
     allowed_output_files: The output files to allow for ffmpeg.
+    sandbox_max_run_time_secs: The maximum time in seconds to run the sandbox.
+      If None, the default limit is 30 minutes.
 
   Returns:
     The subprocess.Popen object with running ffmpeg process.
@@ -1238,9 +1243,11 @@ def _run_ffmpeg(
   env: Any = None  # pylint: disable=unused-variable
   ffmpeg_path = _get_ffmpeg_path()
 
-  # Allowed input and output files are not supported in open source.
+  # Sandbox max runtime, allowed input and ouput files are not supported in
+  # open source.
   del allowed_input_files
   del allowed_output_files
+  del sandbox_max_run_time_secs
 
   argv.append(ffmpeg_path)
   argv.extend(ffmpeg_args)
@@ -1402,6 +1409,8 @@ class VideoReader(_VideoIO):
     bps: The estimated bitrate of the video stream in bits per second, retrieved
       from the video header.
     stream_index: The stream index to read from. The default is 0.
+    sandbox_max_run_time_secs: The maximum time in seconds to run the sandbox.
+      If None, the default limit is 30 minutes. Unused in open source.
   """
 
   path_or_url: _Path
@@ -1422,6 +1431,7 @@ class VideoReader(_VideoIO):
       stream_index: int = 0,
       output_format: str = 'rgb',
       dtype: _DTypeLike = np.uint8,
+      sandbox_max_run_time_secs: int | None = None,
   ):
     if output_format not in {'rgb', 'yuv', 'gray'}:
       raise ValueError(
@@ -1433,6 +1443,7 @@ class VideoReader(_VideoIO):
     self.dtype = np.dtype(dtype)
     if self.dtype.type not in (np.uint8, np.uint16):
       raise ValueError(f'Type {dtype} is not np.uint8 or np.uint16.')
+    self.sandbox_max_run_time_secs = sandbox_max_run_time_secs
     self._read_via_local_file: Any = None
     self._popen: subprocess.Popen[bytes] | None = None
     self._proc: subprocess.Popen[bytes] | None = None
@@ -1475,6 +1486,7 @@ class VideoReader(_VideoIO):
           stdout=subprocess.PIPE,
           stderr=subprocess.PIPE,
           allowed_input_files=[tmp_name],
+          sandbox_max_run_time_secs=self.sandbox_max_run_time_secs,
       )
       self._proc = self._popen.__enter__()
     except Exception:
@@ -1491,6 +1503,9 @@ class VideoReader(_VideoIO):
     Returns:
       A numpy array in the format specified by `output_format`, i.e., a 3D
       array with 3 color channels, except for format 'gray' which is 2D.
+
+    Raises:
+      RuntimeError: If there is an error reading from the output file.
     """
     assert self._proc, 'Error: reading from an already closed context.'
     stdout = self._proc.stdout
@@ -1499,7 +1514,17 @@ class VideoReader(_VideoIO):
     if not data:  # Due to either end-of-file or subprocess error.
       self.close()  # Raises exception if subprocess had error.
       return None  # To indicate end-of-file.
-    assert len(data) == self._num_bytes_per_image
+    if len(data) != self._num_bytes_per_image:
+      self._proc.wait()
+      stderr = self._proc.stderr
+      stderr_output = ''
+      if stderr is not None:
+        stderr_output = stderr.read().decode('utf-8', errors='replace').strip()
+      raise RuntimeError(
+          f'ffmpeg exited with code {self._proc.returncode}.\nIncomplete'
+          f' frame read: expected {self._num_bytes_per_image} bytes, but got'
+          f' {len(data)}.\nffmpeg stderr:\n{stderr_output}'
+      )
     image = np.frombuffer(data, dtype=self.dtype)
     if self.output_format == 'rgb':
       image = image.reshape(*self.shape, 3)
@@ -1574,6 +1599,8 @@ class VideoWriter(_VideoIO):
       'yuv420p' (2x2-subsampled chroma), 'yuv444p' (full-res chroma),
       'yuv420p10le' (10-bit per channel), etc.  The default (None) selects
       'yuv420p' if all shape dimensions are even, else 'yuv444p'.
+    sandbox_max_run_time_secs: The maximum time in seconds to run the sandbox.
+      If None, the default limit is 30 minutes. Unused in open source.
   """
 
   def __init__(
@@ -1591,6 +1618,7 @@ class VideoWriter(_VideoIO):
       input_format: str = 'rgb',
       dtype: _DTypeLike = np.uint8,
       encoded_format: str | None = None,
+      sandbox_max_run_time_secs: int | None = None,
   ) -> None:
     _check_2d_shape(shape)
     if fps is None and metadata:
@@ -1645,6 +1673,7 @@ class VideoWriter(_VideoIO):
     self.input_format = input_format
     self.dtype = dtype
     self.encoded_format = encoded_format
+    self.sandbox_max_run_time_secs = sandbox_max_run_time_secs
     if num_rate_specifications == 0 and not ffmpeg_args:
       qp = 20 if math.prod(self.shape) <= 640 * 480 else 28
     self._bitrate_args = (
@@ -1707,6 +1736,7 @@ class VideoWriter(_VideoIO):
           stdin=subprocess.PIPE,
           stderr=subprocess.PIPE,
           allowed_output_files=[tmp_name],
+          sandbox_max_run_time_secs=self.sandbox_max_run_time_secs,
       )
       self._proc = self._popen.__enter__()
     except Exception:
