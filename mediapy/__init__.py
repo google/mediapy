@@ -1812,7 +1812,7 @@ class VideoWriter(_VideoIO):
       self._write_via_local_file = None
 
 
-class _VideoArray(npt.NDArray[Any]):
+class _VideoArray(np.ndarray):
   """Wrapper to add a VideoMetadata `metadata` attribute to a numpy array."""
 
   metadata: VideoMetadata | None
