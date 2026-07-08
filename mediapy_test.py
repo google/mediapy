@@ -576,6 +576,105 @@ class MediapyTest(parameterized.TestCase):
       self.assertGreater(new_video.metadata.bps, 1_000)  # pyrefly: ignore[no-matching-overload]
       self._check_similar(original_video, new_video, max_rms)
 
+  def test_video_write_with_audio_array(self):
+    shape = 120, 160
+    num_images = 10
+    fps = 30
+    original_video = media.to_uint8(media.moving_circle(shape, num_images))
+
+    sample_rate = 44100
+    duration = num_images / fps
+    t = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
+    audio_data = (np.sin(2 * np.pi * 440 * t) * 32767).astype(np.int16)
+
+    with tempfile.TemporaryDirectory() as directory_name:
+      tmp_path = pathlib.Path(directory_name) / 'test.mp4'
+      media.write_video(
+          tmp_path,
+          original_video,
+          fps=fps,
+          audio=audio_data,
+          audio_sample_rate=sample_rate,
+      )
+
+      self.assertTrue(tmp_path.is_file())
+
+      new_video = media.read_video(tmp_path)
+      self.assertEqual(new_video.metadata.num_images, num_images)
+
+      audio_out_path = pathlib.Path(directory_name) / 'extracted.raw'
+      command = [
+          '-i',
+          str(tmp_path),
+          '-vn',
+          '-acodec',
+          'copy',
+          '-f',
+          's16le',
+          '-y',
+          str(audio_out_path),
+      ]
+      with media._run_ffmpeg(
+          command,
+          allowed_input_files=[str(tmp_path)],
+          allowed_output_files=[str(audio_out_path)],
+      ) as proc:
+        proc.wait()
+        self.assertEqual(proc.returncode, 0)
+
+      self.assertTrue(audio_out_path.is_file())
+      self.assertGreater(audio_out_path.stat().st_size, 0)
+
+  def test_video_write_with_stereo_audio_array(self):
+    shape = 120, 160
+    num_images = 10
+    fps = 30
+    original_video = media.to_uint8(media.moving_circle(shape, num_images))
+
+    sample_rate = 44100
+    duration = num_images / fps
+    t = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
+    audio_data_ch1 = np.sin(2 * np.pi * 440 * t) * 32767
+    audio_data_ch2 = np.sin(2 * np.pi * 880 * t) * 32767
+    audio_data = np.stack((audio_data_ch1, audio_data_ch2), axis=1).astype(
+        np.int16
+    )
+
+    with tempfile.TemporaryDirectory() as directory_name:
+      tmp_path = pathlib.Path(directory_name) / 'test.mp4'
+      media.write_video(
+          tmp_path,
+          original_video,
+          fps=fps,
+          audio=audio_data,
+          audio_sample_rate=sample_rate,
+      )
+
+      self.assertTrue(tmp_path.is_file())
+
+      audio_out_path = pathlib.Path(directory_name) / 'extracted.raw'
+      command = [
+          '-i',
+          str(tmp_path),
+          '-vn',
+          '-acodec',
+          'copy',
+          '-f',
+          's16le',
+          '-y',
+          str(audio_out_path),
+      ]
+      with media._run_ffmpeg(
+          command,
+          allowed_input_files=[str(tmp_path)],
+          allowed_output_files=[str(audio_out_path)],
+      ) as proc:
+        proc.wait()
+        self.assertEqual(proc.returncode, 0)
+
+      self.assertTrue(audio_out_path.is_file())
+      self.assertGreater(audio_out_path.stat().st_size, 0)
+
   def test_video_streaming_write_read_roundtrip(self):
     shape = 62, 744
     num_images = 20
@@ -705,6 +804,21 @@ class MediapyTest(parameterized.TestCase):
     self.assertIsInstance(htmls[0], IPython.display.HTML)
     self.assertLen(re.findall('(?s)<video', htmls[0].data), 1)  # pyrefly: ignore[no-matching-overload]
     self.assertRegex(htmls[0].data, '(?s)<video .*>.*</video>')  # pyrefly: ignore[bad-specialization]
+
+  def test_show_video_with_audio(self):
+    video = media.moving_circle()
+    sample_rate = 44100
+    fps = 30  # moving_circle default
+    duration = len(video) / fps
+    t = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
+    audio_data = (np.sin(2 * np.pi * 440 * t) * 32767).astype(np.int16)
+
+    htmls = []
+    with mock.patch('IPython.display.display', htmls.append):
+      media.show_video(video, audio=audio_data, audio_sample_rate=sample_rate)
+    self.assertLen(htmls, 1)
+    self.assertIsInstance(htmls[0], IPython.display.HTML)
+    self.assertRegex(htmls[0].data, '(?s)<video .*>.*</video>')
 
   def test_show_video_gif(self):
     htmls = []

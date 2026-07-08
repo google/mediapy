@@ -1609,6 +1609,14 @@ class VideoWriter(_VideoIO):
       'yuv420p' if all shape dimensions are even, else 'yuv444p'.
     sandbox_max_run_time_secs: The maximum time in seconds to run the sandbox.
       If None, the default limit is 30 minutes. Unused in open source.
+    audio: Optional audio data. Can be a path to an audio file or a NumPy array.
+      If a NumPy array, it should have shape (N,) for mono or (N, C) for
+      multi-channel audio, where N is the number of samples and C is the number
+      of channels.
+    audio_sample_rate: Sample rate of the audio in Hz. Required if `audio` is a
+      NumPy array.
+    audio_codec: Audio codec to use (e.g., 'aac'). If None, defaults to 'aac' if
+      audio is provided.
   """
 
   def __init__(
@@ -1627,6 +1635,9 @@ class VideoWriter(_VideoIO):
       dtype: _DTypeLike = np.uint8,
       encoded_format: str | None = None,
       sandbox_max_run_time_secs: int | None = None,
+      audio: _NDArray | _Path | None = None,
+      audio_sample_rate: int | None = None,
+      audio_codec: str | None = None,
   ) -> None:
     _check_2d_shape(shape)
     if fps is None and metadata:
@@ -1682,6 +1693,10 @@ class VideoWriter(_VideoIO):
     self.dtype = dtype
     self.encoded_format = encoded_format
     self.sandbox_max_run_time_secs = sandbox_max_run_time_secs
+    self.audio = audio
+    self.audio_sample_rate = audio_sample_rate
+    self.audio_codec = audio_codec
+    self._audio_temp_dir: tempfile.TemporaryDirectory[str] | None = None
     if num_rate_specifications == 0 and not ffmpeg_args:
       qp = 20 if math.prod(self.shape) <= 640 * 480 else 28
     self._bitrate_args = (
@@ -1713,6 +1728,63 @@ class VideoWriter(_VideoIO):
       # Writing to stdout using ('-f', 'mp4', '-') would require
       # ('-movflags', 'frag_keyframe+empty_moov') and the result is nonportable.
       height, width = self.shape
+
+      audio_input_args = []
+      audio_output_args = ['-an']
+      allowed_input_files = []
+
+      if self.audio is not None:
+        audio_codec = self.audio_codec or 'aac'
+        audio_output_args = ['-c:a', audio_codec]
+
+        if isinstance(self.audio, (str, os.PathLike)):
+          audio_path = str(self.audio)
+          audio_input_args = ['-i', audio_path]
+          allowed_input_files.append(audio_path)
+        elif isinstance(self.audio, np.ndarray):
+          if self.audio_sample_rate is None:
+            raise ValueError(
+                'audio_sample_rate must be specified for NumPy array audio.'
+            )
+
+          self._audio_temp_dir = tempfile.TemporaryDirectory()
+          dtype_map = {
+              np.int16: 's16le',
+              np.float32: 'f32le',
+              np.uint8: 'u8',
+              np.int32: 's32le',
+              np.float64: 'f64le',
+          }
+          audio_format = dtype_map.get(self.audio.dtype.type)
+          if not audio_format:
+            raise ValueError(f'Unsupported audio dtype: {self.audio.dtype}')
+
+          tmp_audio_path = pathlib.Path(self._audio_temp_dir.name) / 'audio.raw'
+          tmp_audio_path.write_bytes(self.audio.tobytes())
+
+          audio_path = str(tmp_audio_path)
+
+          if self.audio.ndim == 1:
+            channels = 1
+          elif self.audio.ndim == 2:
+            channels = self.audio.shape[1]
+          else:
+            raise ValueError(f'Unsupported audio shape: {self.audio.shape}')
+
+          audio_input_args = [
+              '-f',
+              audio_format,
+              '-ar',
+              str(self.audio_sample_rate),
+              '-ac',
+              str(channels),
+              '-i',
+              audio_path,
+          ]
+          allowed_input_files.append(audio_path)
+        else:
+          raise ValueError('Unsupported audio type.')
+
       command = (
           [
               '-v',
@@ -1729,7 +1801,10 @@ class VideoWriter(_VideoIO):
               f'{self.fps}',
               '-i',
               '-',
-              '-an',
+          ]
+          + audio_input_args
+          + audio_output_args
+          + [
               '-vcodec',
               self.codec,
               '-pix_fmt',
@@ -1743,6 +1818,9 @@ class VideoWriter(_VideoIO):
           command,
           stdin=subprocess.PIPE,
           stderr=subprocess.PIPE,
+          allowed_input_files=allowed_input_files
+          if allowed_input_files
+          else None,
           allowed_output_files=[tmp_name],
           sandbox_max_run_time_secs=self.sandbox_max_run_time_secs,
       )
@@ -1814,6 +1892,9 @@ class VideoWriter(_VideoIO):
       self._popen.__exit__(None, None, None)
       self._popen = None
       self._proc = None
+    if self._audio_temp_dir:
+      self._audio_temp_dir.cleanup()
+      self._audio_temp_dir = None
     if self._write_via_local_file:
       # pylint: disable-next=no-member
       self._write_via_local_file.__exit__(None, None, None)
@@ -1976,7 +2057,13 @@ def html_from_compressed_video(
 
 
 def show_video(
-    images: Iterable[_NDArray], *, title: str | None = None, **kwargs: Any
+    images: Iterable[_NDArray],
+    *,
+    title: str | None = None,
+    audio: _NDArray | _Path | None = None,
+    audio_sample_rate: int | None = None,
+    audio_codec: str | None = None,
+    **kwargs: Any,
 ) -> str | None:
   """Displays a video in the IPython notebook and optionally saves it to a file.
 
@@ -1993,12 +2080,24 @@ def show_video(
     images: Iterable of video frames (e.g., a 4D array or a list of 2D or 3D
       arrays).
     title: Optional text shown centered above the video.
+    audio: Optional audio data. Can be a path to an audio file or a NumPy array.
+    audio_sample_rate: Sample rate of the audio in Hz. Required if `audio` is a
+      NumPy array.
+    audio_codec: Audio codec to use (e.g., 'aac'). If None, defaults to 'aac' if
+      audio is provided.
     **kwargs: See `show_videos`.
 
   Returns:
     html string if `return_html` is `True`.
   """
-  return show_videos([images], [title], **kwargs)
+  return show_videos(
+      [images],
+      [title],
+      audio=audio,
+      audio_sample_rate=audio_sample_rate,
+      audio_codec=audio_codec,
+      **kwargs,
+  )
 
 
 def show_videos(
@@ -2016,6 +2115,9 @@ def show_videos(
     ylabel: str = '',
     html_class: str = 'show_videos',
     return_html: bool = False,
+    audio: _NDArray | _Path | None = None,
+    audio_sample_rate: int | None = None,
+    audio_codec: str | None = None,
     **kwargs: Any,
 ) -> str | None:
   """Displays a row of videos in the IPython notebook.
@@ -2047,6 +2149,11 @@ def show_videos(
     ylabel: Text (rotated by 90 degrees) shown on the left of each row.
     html_class: CSS class name used in definition of HTML element.
     return_html: If `True` return the raw HTML `str` instead of displaying.
+    audio: Optional audio data. Can be a path to an audio file or a NumPy array.
+    audio_sample_rate: Sample rate of the audio in Hz. Required if `audio` is a
+      NumPy array.
+    audio_codec: Audio codec to use (e.g., 'aac'). If None, defaults to 'aac' if
+      audio is provided.
     **kwargs: Additional parameters (`border`, `loop`, `autoplay`) for
       `html_from_compressed_video`.
 
@@ -2081,7 +2188,15 @@ def show_videos(
       video = [resize_image(image, (h, w)) for image in video]
       first_image = video[0]
     data = compress_video(
-        video, metadata=metadata, fps=fps, bps=bps, qp=qp, codec=codec
+        video,
+        metadata=metadata,
+        fps=fps,
+        bps=bps,
+        qp=qp,
+        codec=codec,
+        audio=audio,
+        audio_sample_rate=audio_sample_rate,
+        audio_codec=audio_codec,
     )
     if title is not None and _config.show_save_dir:
       suffix = _filename_suffix_from_codec(codec)
