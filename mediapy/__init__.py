@@ -1089,8 +1089,8 @@ def show_images(
   def html_from_compressed_images() -> str:
     html_strings = []
     for image, title, png_data in zip(list_images, list_titles, png_datas):
-      w, h = _get_width_height(width, height, image.shape[:2])
-      magnified = h > image.shape[0] or w > image.shape[1]
+      w, h = _get_width_height(width, height, image.shape[:2])  # pyrefly: ignore[missing-attribute]
+      magnified = h > image.shape[0] or w > image.shape[1]  # pyrefly: ignore[missing-attribute]
       pixelated2 = pixelated if pixelated is not None else magnified
       html_strings.append(
           html_from_compressed_image(
