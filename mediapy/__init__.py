@@ -845,7 +845,8 @@ def to_rgb(
     if hasattr(matplotlib, 'colormaps'):
       rgb_from_scalar: Any = matplotlib.colormaps[cmap]  # Newer version.
     else:
-      rgb_from_scalar = matplotlib.pyplot.cm.get_cmap(cmap)  # pylint: disable=no-member
+      # pylint: disable-next=no-member
+      rgb_from_scalar = matplotlib.pyplot.cm.get_cmap(cmap)  # type: ignore[attr-defined, unused-ignore]
   else:
     rgb_from_scalar = cmap
   a = typing.cast(_NDArray, rgb_from_scalar(a))
@@ -1245,7 +1246,7 @@ def _run_ffmpeg(
   env: Any = None  # pylint: disable=unused-variable
   ffmpeg_path = _get_ffmpeg_path()
 
-  # Sandbox max runtime, allowed input and ouput files are not supported in
+  # Sandbox max runtime, allowed input and output files are not supported in
   # open source.
   del allowed_input_files
   del allowed_output_files
