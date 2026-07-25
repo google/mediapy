@@ -179,12 +179,14 @@ if typing.TYPE_CHECKING:
   _DTypeLike = npt.DTypeLike
   _NDArray = npt.NDArray[Any]
   _DType = np.dtype[Any]
+  _BaseArray = npt.NDArray[Any]  # Satisfies mypy.
 else:
   # Create named types for use in the `pdoc` documentation.
   _ArrayLike = typing.TypeVar('_ArrayLike')
   _DTypeLike = typing.TypeVar('_DTypeLike')
   _NDArray = typing.TypeVar('_NDArray')
   _DType = typing.TypeVar('_DType')  # pylint: disable=invalid-name
+  _BaseArray = np.ndarray  # Avoids runtime errors in Python 3.14+.
 
 _IPYTHON_HTML_SIZE_LIMIT = 10**10  # Unlimited seems to be OK now.
 _T = typing.TypeVar('_T')
@@ -1819,7 +1821,7 @@ class VideoWriter(_VideoIO):
       self._write_via_local_file = None
 
 
-class _VideoArray(npt.NDArray[Any]):
+class _VideoArray(_BaseArray):
   """Wrapper to add a VideoMetadata `metadata` attribute to a numpy array."""
 
   metadata: VideoMetadata | None
