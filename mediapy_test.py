@@ -423,6 +423,7 @@ class MediapyTest(parameterized.TestCase):
       if hasattr(matplotlib, 'colormaps'):
         cmap = matplotlib.colormaps['gray']  # Newer version.
       else:
+        # pyrefly: ignore[missing-attribute]
         cmap = matplotlib.pyplot.cm.get_cmap('gray')  # pylint: disable=no-member
       return cmap(x)[..., :3]  # pyrefly: ignore[bad-index]
 
