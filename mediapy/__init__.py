@@ -127,7 +127,7 @@ import typing
 import urllib.request
 import warnings
 from collections.abc import Callable, Generator, Iterable, Iterator, Mapping, Sequence
-from typing import Any
+from typing import Any, TypeVar
 
 import IPython.display
 import matplotlib.pyplot
@@ -182,15 +182,15 @@ if typing.TYPE_CHECKING:
   _BaseArray = npt.NDArray[Any]  # Satisfies mypy.
 else:
   # Create named types for use in the `pdoc` documentation.
-  _ArrayLike = typing.TypeVar('_ArrayLike')
-  _DTypeLike = typing.TypeVar('_DTypeLike')
-  _NDArray = typing.TypeVar('_NDArray')
-  _DType = typing.TypeVar('_DType')  # pylint: disable=invalid-name
+  _ArrayLike = TypeVar('_ArrayLike')
+  _DTypeLike = TypeVar('_DTypeLike')
+  _NDArray = TypeVar('_NDArray')
+  _DType = TypeVar('_DType')  # pylint: disable=invalid-name
   _BaseArray = np.ndarray  # Avoids runtime errors in Python 3.14+.
 
 _IPYTHON_HTML_SIZE_LIMIT = 10**10  # Unlimited seems to be OK now.
-_T = typing.TypeVar('_T')
-_Path = typing.Union[str, 'os.PathLike[str]']
+_T = TypeVar('_T')
+_Path = str | os.PathLike[str]
 
 _IMAGE_COMPARISON_HTML = """\
 <script
