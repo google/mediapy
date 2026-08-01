@@ -41,7 +41,6 @@ dev = [
     "pylint>=2.6.0",
     "pytest",
     "pytest-xdist",
-    "pytype",
 ]
 
 [build-system]
@@ -91,7 +90,7 @@ disable = [
 reports = false
 score = false
 recursive = true
-ignore-paths = [".*ipynb_checkpoints", "^.pytype", ".*/.pytype"]
+ignore-paths = [".*ipynb_checkpoints"]
 
 [tool.pylint.basic]
 good-names-rgxs = "^[a-z][a-z0-9]?|[A-Z]([A-Z_]*[A-Z])?$"
@@ -103,13 +102,6 @@ expected-line-ending-format = "LF"
 [tool.pyrefly]
 min-severity = "warn"
 project-excludes = ["*.ipynb"]
-
-[tool.pytype]
-keep_going = true
-strict_none_binding = true
-use_enum_overlay = true
-use_fiddle_overlay = true
-inputs = ["."]
 
 [tool.ruff]
 extend-exclude = ["*.ipynb"]
