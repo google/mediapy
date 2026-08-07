@@ -55,7 +55,6 @@ aggressive = 3
 recursive = true
 
 [tool.mypy]
-cache_dir = "~/.cache/mypy"
 strict = true
 ignore_missing_imports = true
 files = ["."]
