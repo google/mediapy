@@ -648,13 +648,18 @@ class MediapyTest(parameterized.TestCase):
       )
       new_video = media.read_video(path, dtype=np.uint16, output_format='gray')
     self.assertEqual(new_video.dtype, np.uint16)
+    # FFmpeg <= 7.1 converts 16-bit <> 10-bit by a plain shift of 6 in both
+    # directions, so the round trip is exact.  FFmpeg 8.0 still encodes with
+    # the shift but decodes by 65535/1020, taking the legacy peak 255 << 2 as
+    # white, so the round trip gains 65535/65280 = 257/256 and input values
+    # above 65280 saturate.
+    video_float = video.astype(np.float64)
+    gain = np.vdot(video_float, new_video) / np.vdot(video_float, video_float)
+    self.assertAlmostEqual(gain, 1.0, delta=0.01)
     value_1_of_10bit_encoded_in_16bits = 64
-    # This factor may need to be raised in some recent versions of ffmpeg due
-    # to scaling issues on 10-bit <> 16-bit conversions.
-    factor = 2.5
-    self._check_similar(
-        video, new_video, max_rms=value_1_of_10bit_encoded_in_16bits * factor
-    )
+    factor = 0.8
+    max_rms = value_1_of_10bit_encoded_in_16bits * factor
+    self._check_similar(video, new_video / gain, max_rms=max_rms)
 
   def test_video_read_write_vp9(self):
     video = media.moving_circle((256, 256), num_images=4, dtype=np.uint8)
