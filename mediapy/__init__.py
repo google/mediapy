@@ -1538,7 +1538,7 @@ class VideoReader(_VideoIO):
           f' frame read: expected {self._num_bytes_per_image} bytes, but got'
           f' {len(data)}.\nffmpeg stderr:\n{stderr_output}'
       )
-    image = np.frombuffer(data, dtype=self.dtype)
+    image: _NDArray = np.frombuffer(data, dtype=self.dtype)
     if self.output_format == 'rgb':
       image = image.reshape(*self.shape, 3)
     elif self.output_format == 'yuv':  # Convert from planar YUV to pixel YUV.
