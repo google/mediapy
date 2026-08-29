@@ -69,6 +69,7 @@ disallow_untyped_calls = false
 disallow_untyped_defs = false
 
 [tool.pyink]
+target-version = ["py310"]
 # Formatting configuration to follow Google style-guide.
 line-length = 80
 preview = true
