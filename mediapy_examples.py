@@ -105,7 +105,7 @@ media.write_image('/tmp/image3.png', image3)
 
 # %%
 # Display a video (a 3D or 4D array, or an iterable of images):
-video1 = media.moving_circle((65, 65), num_images=10)
+video1 = media.moving_circle((64, 64), num_images=10)
 media.show_video(video1, fps=2)
 
 # %%
@@ -212,17 +212,22 @@ media.show_images(images, border=True, columns=5, height=80)
 
 
 # %%
-def mandelbrot(shape, center_xy=(-0.75, -0.5), radius=1.25, max_iter=200):
+def mandelbrot(shape, center_xy=(-0.75, -0.5), radius=1.25, mag=4.0):
   yx = np.moveaxis(np.indices(shape), 0, -1)
   yx = (yx + 0.5 - np.array(shape) / 2) / max(shape) * 2  # in [-1, 1]^2
   c = np.dot(yx * radius + center_xy[::-1], (1j, 1))
-  count_iter = np.zeros(shape)
   z = np.zeros_like(c)
-  for it in range(max_iter):
-    active = abs(z) < 4
-    count_iter[active] = it
-    z[active] = z[active] ** 2 + c[active]
-  return np.where(active, 0, count_iter)
+  time = np.zeros(shape)
+
+  for it in range(200):
+    mag0 = abs(z)
+    with np.errstate(all='ignore'):
+      z = z**2 + c
+    mag1 = abs(z)
+    end = (mag0 < mag) & (mag1 >= mag)
+    time[end] = it + (mag - mag0[end]) / (mag1[end] - mag0[end])
+
+  return time
 
 
 # %%
