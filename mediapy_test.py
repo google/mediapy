@@ -651,7 +651,7 @@ class MediapyTest(parameterized.TestCase):
     value_1_of_10bit_encoded_in_16bits = 64
     # This factor may need to be raised in some recent versions of ffmpeg due
     # to scaling issues on 10-bit <> 16-bit conversions.
-    factor = 0.8
+    factor = 2.5
     self._check_similar(
         video, new_video, max_rms=value_1_of_10bit_encoded_in_16bits * factor
     )
