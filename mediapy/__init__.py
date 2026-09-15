@@ -1340,8 +1340,8 @@ def _get_video_metadata(path: _Path) -> VideoMetadata:
       # Previously, was `'-vcodec', 'copy'`
       '-vf',
       'select=1',
-      '-vsync',
-      '0',
+      '-fps_mode',
+      'passthrough',
       '-f',
       'null',
       '-',
