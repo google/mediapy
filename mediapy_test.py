@@ -14,6 +14,7 @@
 
 """Tests for package mediapy."""
 
+import base64
 import io
 import pathlib
 import re
@@ -50,6 +51,56 @@ def _rms_diff(a, b) -> float:
   if a.shape != b.shape:
     raise ValueError(f'Shapes {a.shape} and {b.shape} do not match.')
   return np.sqrt(np.mean(np.square(a - b)))
+
+
+def _sine_audio(num_samples, frequency, sample_rate) -> np.ndarray:
+  """Returns int16 samples of a sine wave of `frequency` Hz."""
+  t = np.arange(num_samples) / sample_rate
+  return (np.sin(2 * np.pi * frequency * t) * 32767).astype(np.int16)
+
+
+def _decode_audio(test, video_path, out_path, sample_rate) -> np.ndarray:
+  """Returns the int16 samples of the audio stream decoded from a video.
+
+  Args:
+    test: Test case used to verify that `ffmpeg` succeeds.
+    video_path: Input video file.
+    out_path: Temporary file for the decoded raw samples.
+    sample_rate: Sample rate in Hz to which the stream is resampled, so that an
+      incorrectly stored rate changes the number of returned samples.
+
+  Returns:
+    The samples of all channels, interleaved.
+  """
+  # Not '-acodec copy', which would relabel the AAC bitstream as raw PCM
+  # instead of decoding it.  The channel count is left unspecified so that the
+  # returned size reflects the number of channels in the stream.
+  command = [
+      '-i',
+      str(video_path),
+      '-vn',
+      '-f',
+      's16le',
+      '-ar',
+      str(sample_rate),
+      '-y',
+      str(out_path),
+  ]
+  with media._run_ffmpeg(
+      command,
+      allowed_input_files=[str(video_path)],
+      allowed_output_files=[str(out_path)],
+  ) as proc:
+    proc.wait()
+    test.assertEqual(proc.returncode, 0)
+  return np.frombuffer(out_path.read_bytes(), dtype=np.int16)
+
+
+def _dominant_frequency(samples, sample_rate) -> float:
+  """Returns the frequency in Hz with the largest magnitude in `samples`."""
+  spectrum = np.abs(np.fft.rfft(samples.astype(np.float64)))
+  frequencies = np.fft.rfftfreq(len(samples), 1 / sample_rate)
+  return float(frequencies[spectrum.argmax()])
 
 
 class MediapyTest(parameterized.TestCase):
@@ -576,6 +627,89 @@ class MediapyTest(parameterized.TestCase):
       self.assertGreater(new_video.metadata.bps, 1_000)  # pyrefly: ignore[no-matching-overload]
       self._check_similar(original_video, new_video, max_rms)
 
+  @parameterized.named_parameters(
+      ('mono', (440.0,)),
+      ('stereo', (440.0, 880.0)),
+  )
+  def test_video_write_with_audio_array(self, frequencies):
+    shape = 120, 160
+    num_images = 10
+    fps = 30
+    sample_rate = 44100
+    num_channels = len(frequencies)
+    num_samples = int(sample_rate * num_images / fps)
+    original_video = media.to_uint8(media.moving_circle(shape, num_images))
+    channels = [_sine_audio(num_samples, f, sample_rate) for f in frequencies]
+    audio_data = channels[0] if num_channels == 1 else np.stack(channels, -1)
+
+    with tempfile.TemporaryDirectory() as directory_name:
+      tmp_path = pathlib.Path(directory_name) / 'test.mp4'
+      media.write_video(
+          tmp_path,
+          original_video,
+          fps=fps,
+          audio=audio_data,
+          audio_sample_rate=sample_rate,
+      )
+      new_video = media.read_video(tmp_path)
+      assert new_video.metadata
+      self.assertEqual(new_video.metadata.num_images, num_images)
+
+      raw_path = pathlib.Path(directory_name) / 'audio.raw'
+      decoded = _decode_audio(self, tmp_path, raw_path, sample_rate)
+
+      # The number of samples is only approximate because the AAC encoder pads
+      # the signal, but it is far from `num_samples * other_num_channels`, so
+      # it detects both a dropped channel and an incorrect sample rate.
+      self.assertBetween(
+          decoded.size,
+          (num_samples - 4096) * num_channels,
+          (num_samples + 4096) * num_channels,
+      )
+      self.assertEqual(decoded.size % num_channels, 0)
+      decoded = decoded.reshape(-1, num_channels)
+      for channel, frequency in enumerate(frequencies):
+        self.assertAlmostEqual(
+            _dominant_frequency(decoded[:, channel], sample_rate),
+            frequency,
+            delta=5.0,
+        )
+
+  def test_video_write_with_audio_codec(self):
+    shape = 64, 64
+    num_images = 10
+    fps = 30
+    sample_rate = 48000  # A sample rate natively supported by Opus.
+    num_samples = int(sample_rate * num_images / fps)
+    video = media.to_uint8(media.moving_circle(shape, num_images))
+    audio_data = _sine_audio(num_samples, 440.0, sample_rate)
+
+    with tempfile.TemporaryDirectory() as directory_name:
+      # The default 'aac' audio codec is not supported in a WebM container.
+      tmp_path = pathlib.Path(directory_name) / 'test.webm'
+      media.write_video(
+          tmp_path,
+          video,
+          fps=fps,
+          codec='vp9',
+          audio=audio_data,
+          audio_sample_rate=sample_rate,
+          audio_codec='libopus',
+      )
+      raw_path = pathlib.Path(directory_name) / 'audio.raw'
+      decoded = _decode_audio(self, tmp_path, raw_path, sample_rate)
+      self.assertAlmostEqual(
+          _dominant_frequency(decoded, sample_rate), 440.0, delta=5.0
+      )
+
+  def test_video_writer_audio_non_native_byte_order(self):
+    non_native_dtype = np.dtype(np.int16).newbyteorder()
+    audio_data = np.zeros(1000, dtype=non_native_dtype)
+    with self.assertRaisesRegex(ValueError, 'native byte order'):
+      media.VideoWriter(
+          'test.mp4', (16, 16), audio=audio_data, audio_sample_rate=44100
+      )
+
   def test_video_streaming_write_read_roundtrip(self):
     shape = 62, 744
     num_images = 20
@@ -706,6 +840,22 @@ class MediapyTest(parameterized.TestCase):
     self.assertLen(re.findall('(?s)<video', htmls[0].data), 1)  # pyrefly: ignore[no-matching-overload]
     self.assertRegex(htmls[0].data, '(?s)<video .*>.*</video>')  # pyrefly: ignore[bad-specialization]
 
+  def test_show_video_with_audio(self):
+    video = media.moving_circle()
+    sample_rate = 44100
+    fps = 30
+    num_samples = int(sample_rate * len(video) / fps)
+    audio_data = _sine_audio(num_samples, 440.0, sample_rate)
+
+    htmls = []
+    with mock.patch('IPython.display.display', htmls.append):
+      media.show_video(
+          video, fps=fps, audios=[audio_data], audio_sample_rate=sample_rate
+      )
+    self.assertLen(htmls, 1)
+    self.assertIsInstance(htmls[0], IPython.display.HTML)
+    self.assertRegex(htmls[0].data, '(?s)<video .*>.*</video>')  # pyrefly: ignore[bad-specialization]
+
   def test_show_video_gif(self):
     htmls = []
     with mock.patch('IPython.display.display', htmls.append):
@@ -757,6 +907,49 @@ class MediapyTest(parameterized.TestCase):
     self.assertLen(re.findall('(?s)<table', htmls[0].data), 1)  # pyrefly: ignore[no-matching-overload]
     self.assertRegex(htmls[0].data, '(?s)title1.*<video.*title2.*<video')  # pyrefly: ignore[bad-specialization]
     self.assertLen(re.findall('(?s)<video', htmls[0].data), 2)  # pyrefly: ignore[no-matching-overload]
+
+  @parameterized.named_parameters(('list', False), ('dict', True))
+  def test_show_videos_with_audio(self, use_dict):
+    video = media.moving_circle((32, 32), num_images=10)
+    fps = 30
+    sample_rate = 44100
+    num_samples = int(sample_rate * len(video) / fps)
+    frequencies = [440.0, 880.0]
+    audio = [_sine_audio(num_samples, f, sample_rate) for f in frequencies]
+    titles = ['title1', 'title2']
+    if use_dict:
+      videos = dict(zip(titles, [video] * 2))
+      audios = dict(zip(titles, audio))
+    else:
+      videos = [video] * 2
+      audios = audio
+
+    htmls = []
+    with mock.patch('IPython.display.display', htmls.append):
+      media.show_videos(
+          videos, fps=fps, audios=audios, audio_sample_rate=sample_rate
+      )
+    self.assertLen(htmls, 1)
+    self.assertIsInstance(htmls[0], IPython.display.HTML)
+    self.assertLen(re.findall('(?s)<video', htmls[0].data), 2)  # pyrefly: ignore[no-matching-overload]
+
+    # Decode the embedded videos to verify that each one carries its own track
+    # rather than a single shared one.
+    b64_videos = re.findall('base64,([^"]+)"', htmls[0].data)  # pyrefly: ignore[no-matching-overload]
+    self.assertLen(b64_videos, 2)
+    with tempfile.TemporaryDirectory() as directory_name:
+      for index, (b64_video, frequency) in enumerate(
+          zip(b64_videos, frequencies)
+      ):
+        tmp_path = pathlib.Path(directory_name) / f'video{index}.mp4'
+        tmp_path.write_bytes(base64.b64decode(b64_video))
+        raw_path = pathlib.Path(directory_name) / f'audio{index}.raw'
+        decoded = _decode_audio(self, tmp_path, raw_path, sample_rate)
+        # Approximate because the AAC encoder pads the signal.
+        self.assertBetween(decoded.size, num_samples - 4096, num_samples + 4096)
+        self.assertAlmostEqual(
+            _dominant_frequency(decoded, sample_rate), frequency, delta=5.0
+        )
 
   def test_show_videos_over_multiple_rows(self):
     htmls = []

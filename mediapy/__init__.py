@@ -191,6 +191,17 @@ _IPYTHON_HTML_SIZE_LIMIT = 10**10  # Unlimited seems to be OK now.
 _T = typing.TypeVar('_T')
 _Path = typing.Union[str, 'os.PathLike[str]']
 
+# Raw PCM sample formats (as in `ffmpeg -formats`) for the audio dtypes that
+# `VideoWriter` is able to feed to `ffmpeg`.  Multi-byte formats lack the
+# byte-order suffix ('le' or 'be'), which is appended for the native order.
+_FFMPEG_AUDIO_FORMAT_FROM_DTYPE = {
+    np.uint8: 'u8',
+    np.int16: 's16',
+    np.int32: 's32',
+    np.float32: 'f32',
+    np.float64: 'f64',
+}
+
 _IMAGE_COMPARISON_HTML = """\
 <script
   defer
@@ -730,6 +741,23 @@ def _write_via_local_file(path: _Path) -> Iterator[str]:
       yield str(tmp_path)
       with _open(path, mode='wb') as f:
         f.write(tmp_path.read_bytes())
+
+
+@contextlib.contextmanager
+def _audio_via_local_file(audio: _NDArray) -> Iterator[str]:
+  """Context to write audio samples to a temporary local file.
+
+  Args:
+    audio: Array of raw PCM audio samples, with shape (N,) for mono or (N, C)
+      for C interleaved channels.
+
+  Yields:
+    The name of a local file containing the raw samples.
+  """
+  with tempfile.TemporaryDirectory() as directory_name:
+    tmp_path = pathlib.Path(directory_name) / 'audio.raw'
+    tmp_path.write_bytes(audio.tobytes())
+    yield str(tmp_path)
 
 
 class set_show_save_dir:  # pylint: disable=invalid-name
@@ -1609,6 +1637,22 @@ class VideoWriter(_VideoIO):
       'yuv420p' if all shape dimensions are even, else 'yuv444p'.
     sandbox_max_run_time_secs: The maximum time in seconds to run the sandbox.
       If None, the default limit is 30 minutes. Unused in open source.
+    audio: Optional audio data as a NumPy array.  It should have shape (N,) for
+      mono or (N, C) for multi-channel audio, where N is the number of samples
+      and C is the number of channels.  The dtype must be one of `np.uint8`,
+      `np.int16`, `np.int32`, `np.float32`, or `np.float64`, in native byte
+      order.  Float samples are nominally in [-1.0, 1.0], and values outside
+      this range typically clip; integer samples span the full range of their
+      type, where `np.uint8` is unsigned with silence at 128.  The two streams
+      are not truncated to a common length: if the audio is shorter than the
+      video, the remainder is silent; if it is longer, the audio continues past
+      the end of the video stream (most players keep showing the last frame).
+    audio_sample_rate: Sample rate of the audio in Hz. Required if `audio` is
+      provided.
+    audio_codec: Audio compression algorithm as defined by "ffmpeg -codecs"
+      (default 'aac').  It must be supported by the video container, e.g., 'aac'
+      for MP4 ('h264' or 'hevc') or 'libopus' for WebM ('vp9').  Ignored if
+      `audio` is None.
   """
 
   def __init__(
@@ -1627,6 +1671,9 @@ class VideoWriter(_VideoIO):
       dtype: _DTypeLike = np.uint8,
       encoded_format: str | None = None,
       sandbox_max_run_time_secs: int | None = None,
+      audio: _NDArray | None = None,
+      audio_sample_rate: int | None = None,
+      audio_codec: str = 'aac',
   ) -> None:
     _check_2d_shape(shape)
     if fps is None and metadata:
@@ -1660,6 +1707,19 @@ class VideoWriter(_VideoIO):
     dtype = np.dtype(dtype)
     if dtype.type not in (np.uint8, np.uint16):
       raise ValueError(f'Type {dtype} is not np.uint8 or np.uint16.')
+    if audio is not None:
+      if audio_sample_rate is None:
+        raise ValueError('The audio_sample_rate must be set if audio is set.')
+      if audio.ndim not in (1, 2):
+        raise ValueError(f'Audio shape {audio.shape} is not (N,) or (N, C).')
+      if audio.dtype.type not in _FFMPEG_AUDIO_FORMAT_FROM_DTYPE:
+        raise ValueError(f'Audio type {audio.dtype} is unsupported.')
+      if not audio.dtype.isnative:
+        raise ValueError(
+            f'Audio type {audio.dtype} is not in native byte order.'
+        )
+      if codec == 'gif':
+        raise ValueError('Audio is not supported with the gif codec.')
     self.path = pathlib.Path(path)
     self.shape = shape
     all_dimensions_are_even = all(dim % 2 == 0 for dim in shape)
@@ -1682,6 +1742,9 @@ class VideoWriter(_VideoIO):
     self.dtype = dtype
     self.encoded_format = encoded_format
     self.sandbox_max_run_time_secs = sandbox_max_run_time_secs
+    self.audio = audio
+    self.audio_sample_rate = audio_sample_rate
+    self.audio_codec = audio_codec
     if num_rate_specifications == 0 and not ffmpeg_args:
       qp = 20 if math.prod(self.shape) <= 640 * 480 else 28
     self._bitrate_args = (
@@ -1699,20 +1762,46 @@ class VideoWriter(_VideoIO):
       # video_filter = ('split[s0][s1];[s0]palettegen=stats_mode=single[p];'
       #                 '[s1][p]paletteuse=new=1')
       self.ffmpeg_args = ['-vf', video_filter, '-f', 'gif'] + self.ffmpeg_args
-    self._write_via_local_file: Any = None
-    self._popen: subprocess.Popen[bytes] | None = None
+    self._exit_stack: contextlib.ExitStack | None = None
     self._proc: subprocess.Popen[bytes] | None = None
 
   def __enter__(self) -> 'VideoWriter':
     input_pix_fmt = self._get_pix_fmt(self.dtype, self.input_format)
     try:
-      self._write_via_local_file = _write_via_local_file(self.path)
-      # pylint: disable-next=no-member
-      tmp_name = self._write_via_local_file.__enter__()
+      self._exit_stack = contextlib.ExitStack()
+      tmp_name = self._exit_stack.enter_context(
+          _write_via_local_file(self.path)
+      )
 
       # Writing to stdout using ('-f', 'mp4', '-') would require
       # ('-movflags', 'frag_keyframe+empty_moov') and the result is nonportable.
       height, width = self.shape
+
+      audio_input_args = []
+      audio_output_args = ['-an']
+      allowed_input_files = []
+
+      if self.audio is not None:
+        audio_path = self._exit_stack.enter_context(
+            _audio_via_local_file(self.audio)
+        )
+        channels = 1 if self.audio.ndim == 1 else self.audio.shape[1]
+        audio_format = _FFMPEG_AUDIO_FORMAT_FROM_DTYPE[self.audio.dtype.type]
+        if self.audio.dtype.itemsize > 1:
+          audio_format += {'little': 'le', 'big': 'be'}[sys.byteorder]
+        audio_input_args = [
+            '-f',
+            audio_format,
+            '-ar',
+            str(self.audio_sample_rate),
+            '-ac',
+            str(channels),
+            '-i',
+            audio_path,
+        ]
+        audio_output_args = ['-c:a', self.audio_codec]
+        allowed_input_files.append(audio_path)
+
       command = (
           [
               '-v',
@@ -1729,7 +1818,10 @@ class VideoWriter(_VideoIO):
               f'{self.fps}',
               '-i',
               '-',
-              '-an',
+          ]
+          + audio_input_args
+          + audio_output_args
+          + [
               '-vcodec',
               self.codec,
               '-pix_fmt',
@@ -1739,14 +1831,18 @@ class VideoWriter(_VideoIO):
           + self.ffmpeg_args
           + ['-y', tmp_name]
       )
-      self._popen = _run_ffmpeg(
-          command,
-          stdin=subprocess.PIPE,
-          stderr=subprocess.PIPE,
-          allowed_output_files=[tmp_name],
-          sandbox_max_run_time_secs=self.sandbox_max_run_time_secs,
+      self._proc = self._exit_stack.enter_context(
+          _run_ffmpeg(
+              command,
+              stdin=subprocess.PIPE,
+              stderr=subprocess.PIPE,
+              # `_run_ffmpeg` omits the sandbox flag only for None, so an empty
+              # list would pass an empty '--sandbox_read_access_files'.
+              allowed_input_files=allowed_input_files or None,
+              allowed_output_files=[tmp_name],
+              sandbox_max_run_time_secs=self.sandbox_max_run_time_secs,
+          )
       )
-      self._proc = self._popen.__enter__()
     except Exception:
       self.__exit__(None, None, None)
       raise
@@ -1801,23 +1897,24 @@ class VideoWriter(_VideoIO):
 
   def close(self) -> None:
     """Finishes writing the video.  (Called automatically at end of context.)"""
-    if self._popen:
-      assert self._proc, 'Error: closing an already closed context.'
-      stdin = self._proc.stdin
-      assert stdin is not None
-      stdin.close()
-      if self._proc.wait():
-        stderr = self._proc.stderr
-        assert stderr is not None
-        s = stderr.read().decode('utf-8')
-        raise RuntimeError(f"Error writing '{self.path}': {s}")
-      self._popen.__exit__(None, None, None)
-      self._popen = None
-      self._proc = None
-    if self._write_via_local_file:
-      # pylint: disable-next=no-member
-      self._write_via_local_file.__exit__(None, None, None)
-      self._write_via_local_file = None
+    if self._exit_stack is None:
+      return
+    # Unwinding the stack terminates the `ffmpeg` process, removes the
+    # temporary audio file, and copies the encoded video to a remote `path`.
+    # Raising within the `with` propagates the error into those contexts, so
+    # an incomplete video is discarded rather than copied.
+    with self._exit_stack:
+      self._exit_stack = None
+      if self._proc is not None:
+        proc, self._proc = self._proc, None
+        stdin = proc.stdin
+        assert stdin is not None
+        stdin.close()
+        if proc.wait():
+          stderr = proc.stderr
+          assert stderr is not None
+          s = stderr.read().decode('utf-8')
+          raise RuntimeError(f"Error writing '{self.path}': {s}")
 
 
 class _VideoArray(np.ndarray):
@@ -2016,6 +2113,9 @@ def show_videos(
     ylabel: str = '',
     html_class: str = 'show_videos',
     return_html: bool = False,
+    audios: Iterable[_NDArray] | Mapping[str, _NDArray] | None = None,
+    audio_sample_rate: int | None = None,
+    audio_codec: str = 'aac',
     **kwargs: Any,
 ) -> str | None:
   """Displays a row of videos in the IPython notebook.
@@ -2047,6 +2147,16 @@ def show_videos(
     ylabel: Text (rotated by 90 degrees) shown on the left of each row.
     html_class: CSS class name used in definition of HTML element.
     return_html: If `True` return the raw HTML `str` instead of displaying.
+    audios: Optional iterable of audio tracks, or dictionary of `{title:
+      audio}`; see `VideoWriter`.  Each track is attached to the corresponding
+      video, so an iterable must have one entry (possibly None) per video.  With
+      a dictionary, its keys must match the video titles exactly (a value may be
+      None for no audio).  Audio is incompatible with `codec` 'gif'.  With the
+      default `autoplay=True`, the video starts muted (browsers block unmuted
+      autoplay); unmute it in the player controls, or pass `autoplay=False`.
+    audio_sample_rate: Sample rate of the audio in Hz, shared by all tracks.
+      Required if `audios` is provided.
+    audio_codec: Audio compression algorithm (default 'aac'); see `VideoWriter`.
     **kwargs: Additional parameters (`border`, `loop`, `autoplay`) for
       `html_from_compressed_video`.
 
@@ -2068,11 +2178,33 @@ def show_videos(
           'Number of videos does not match number of titles'
           f' ({len(list_videos)} vs {len(list_titles)}).'
       )
+
+  if audios is None:
+    list_audios = [None] * len(list_videos)
+  elif isinstance(audios, Mapping):
+    missing = set(list_titles).difference(audios)
+    extra = set(audios).difference(list_titles)
+    if missing or extra:
+      raise ValueError(
+          'The audios dictionary keys must match the video titles (use None as'
+          f' the value for no audio); missing: {sorted(missing, key=str)},'
+          f' extra: {sorted(extra, key=str)}.'
+      )
+    list_audios = [audios.get(title) for title in list_titles]  # pyrefly: ignore[bad-argument-type]
+  else:
+    list_audios = list(audios)
+
+  if len(list_videos) != len(list_audios):
+    raise ValueError(
+        'Number of videos does not match number of audio'
+        f' ({len(list_videos)} vs {len(list_audios)}).'
+    )
+
   if codec not in {'h264', 'gif'}:
     raise ValueError(f'Codec {codec} is neither h264 or gif.')
 
   html_strings = []
-  for video, title in zip(list_videos, list_titles):
+  for video, title, video_audio in zip(list_videos, list_titles, list_audios):
     metadata: VideoMetadata | None = getattr(video, 'metadata', None)
     first_image, video = _peek_first(video)
     w, h = _get_width_height(width, height, first_image.shape[:2])
@@ -2081,7 +2213,15 @@ def show_videos(
       video = [resize_image(image, (h, w)) for image in video]
       first_image = video[0]
     data = compress_video(
-        video, metadata=metadata, fps=fps, bps=bps, qp=qp, codec=codec
+        video,
+        metadata=metadata,
+        fps=fps,
+        bps=bps,
+        qp=qp,
+        codec=codec,
+        audio=video_audio,
+        audio_sample_rate=audio_sample_rate,
+        audio_codec=audio_codec,
     )
     if title is not None and _config.show_save_dir:
       suffix = _filename_suffix_from_codec(codec)
