@@ -1022,7 +1022,7 @@ def show_images(
   If a directory has been specified using `set_show_save_dir`, also saves each
   titled image to a file in that directory based on its title.
 
-  >>> image1 = np.default_rng(1).random((64, 64, 3))
+  >>> image1 = np.random.default_rng(1).random((64, 64, 3))
   >>> image2 = color_ramp((64, 64))
   >>> show_images([image1, image2])
   >>> show_images({'random image': image1, 'color ramp': image2}, height=128)
