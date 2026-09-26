@@ -47,17 +47,18 @@ show_image(read_image('/tmp/burano.png'))
 
 Show titled images side-by-side:
 ```python
+rng = np.random.default_rng(1)
 images = {
     'original': checkerboard,
     'darkened': checkerboard * 0.7,
-    'random': np.random.rand(32, 32, 3),
+    'random': rng.random((32, 32, 3)),
 }
 show_images(images, vmin=0.0, vmax=1.0, border=True, height=64)
 ```
 
 Compare two images using an interactive slider:
 ```python
-compare_images([checkerboard, np.random.rand(128, 128, 3)])
+compare_images([checkerboard, rng.random((128, 128, 3))])
 ```
 
 ## Video examples
@@ -86,7 +87,7 @@ show_video(read_video(VIDEO))
 
 Create and display a looping two-frame GIF video:
 ```python
-image1 = resize_image(np.random.rand(10, 10, 3), (50, 50))
+image1 = resize_image(np.random.default_rng(1).random((10, 10, 3)), (50, 50))
 show_video([image1, image1 * 0.8], fps=2, codec='gif')
 ```
 
@@ -1008,9 +1009,10 @@ def show_image(
 
   See `show_images`.
 
-  >>> show_image(np.random.rand(100, 100))
-  >>> show_image(np.random.randint(0, 256, size=(80, 80, 3), dtype='uint8'))
-  >>> show_image(np.random.rand(10, 10) - 0.5, cmap='bwr', height=100)
+  >>> rng = np.random.default_rng(1)
+  >>> show_image(rng.random((100, 100)))
+  >>> show_image(rng.integers(0, 256, size=(80, 80, 3), dtype='uint8'))
+  >>> show_image(rng.random((10, 10)) - 0.5, cmap='bwr', height=100)
   >>> show_image(read_image('/tmp/image.png'))
   >>> url = 'https://github.com/hhoppe/data/raw/main/image.png'
   >>> show_image(read_image(url))
@@ -1048,7 +1050,8 @@ def show_images(
   If a directory has been specified using `set_show_save_dir`, also saves each
   titled image to a file in that directory based on its title.
 
-  >>> image1, image2 = np.random.rand(64, 64, 3), color_ramp((64, 64))
+  >>> image1 = np.random.default_rng(1).random((64, 64, 3))
+  >>> image2 = color_ramp((64, 64))
   >>> show_images([image1, image2])
   >>> show_images({'random image': image1, 'color ramp': image2}, height=128)
   >>> show_images([image1, image2] * 5, columns=4, border=True)
@@ -1164,7 +1167,8 @@ def compare_images(
   The slider functionality requires that the web browser have Internet access.
   See additional info in `https://github.com/sneas/img-comparison-slider`.
 
-  >>> image1, image2 = np.random.rand(64, 64, 3), color_ramp((64, 64))
+  >>> image1 = np.random.default_rng(1).random((64, 64, 3))
+  >>> image2 = color_ramp((64, 64))
   >>> compare_images([image1, image2])
 
   Args:
