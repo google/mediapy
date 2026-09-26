@@ -41,7 +41,6 @@ dev = [
     "pylint>=2.6.0",
     "pytest",
     "pytest-xdist",
-    "pytype",
 ]
 
 [build-system]
@@ -51,14 +50,14 @@ build-backend = "flit_core.buildapi"
 [tool.autopep8]
 indent_size = 2
 max_line_length = 80
-ignore = "E121,E125,E126,E129,E226,E302,E305,E501,W504,E741,W503"
+ignore = "E111,E114,E121,E125,E126,E129,E226,E302,E305,E501,W504,E741,W503"
 aggressive = 3
 recursive = true
 
 [tool.mypy]
-cache_dir = "~/.cache/mypy"
 strict = true
 ignore_missing_imports = true
+files = ["."]
 
 [[tool.mypy.overrides]]
 module = "mediapy_test"
@@ -70,6 +69,7 @@ disallow_untyped_calls = false
 disallow_untyped_defs = false
 
 [tool.pyink]
+target-version = ["py310"]
 # Formatting configuration to follow Google style-guide.
 line-length = 80
 preview = true
@@ -90,7 +90,7 @@ disable = [
 reports = false
 score = false
 recursive = true
-ignore-paths = [".*ipynb_checkpoints", "^.pytype", ".*/.pytype"]
+ignore-paths = [".*ipynb_checkpoints"]
 
 [tool.pylint.basic]
 good-names-rgxs = "^[a-z][a-z0-9]?|[A-Z]([A-Z_]*[A-Z])?$"
@@ -99,8 +99,22 @@ good-names-rgxs = "^[a-z][a-z0-9]?|[A-Z]([A-Z_]*[A-Z])?$"
 indent-string = "  "
 expected-line-ending-format = "LF"
 
-[tool.pytype]
-keep_going = true
-strict_none_binding = true
-use_enum_overlay = true
-use_fiddle_overlay = true
+[tool.pyrefly]
+min-severity = "warn"
+project-excludes = ["*.ipynb"]
+
+[tool.ruff]
+extend-exclude = ["*.ipynb"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "B", "C", "UP", "SIM", "RUF", "NPY", "PTH", "PERF",
+    "ISC", "ICN", "PIE", "RET", "TID", "TC", "I",
+]
+extend-ignore = [
+    "E402", "E501", "E721", "E741",
+    "B010", "B028", "C408", "C901",
+    "TC003", "TC006", "SIM300", "ICN001", "RET504", "SIM905", "RUF005",
+    "I001", "SIM117",
+]
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?)|unused_.*)$"

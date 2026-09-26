@@ -108,7 +108,6 @@ __version__ = '1.2.7'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 import contextlib
 import functools
 import importlib
@@ -125,9 +124,10 @@ import subprocess
 import sys
 import tempfile
 import typing
-from typing import Any
 import urllib.request
 import warnings
+from collections.abc import Callable, Generator, Iterable, Iterator, Mapping, Sequence
+from typing import Any, TypeVar
 
 import IPython.display
 import matplotlib.pyplot
@@ -136,12 +136,11 @@ import numpy.typing as npt
 import PIL.Image
 import PIL.ImageOps
 
-
 if not hasattr(PIL.Image, 'Resampling'):  # Allow Pillow<9.0.
   PIL.Image.Resampling = PIL.Image  # type: ignore
 
 # Selected and reordered here for pdoc documentation.
-__all__ = [
+__all__ = [  # noqa: RUF022
     'show_image',
     'show_images',
     'compare_images',
@@ -180,16 +179,18 @@ if typing.TYPE_CHECKING:
   _DTypeLike = npt.DTypeLike
   _NDArray = npt.NDArray[Any]
   _DType = np.dtype[Any]
+  _BaseArray = npt.NDArray[Any]  # Satisfies mypy.
 else:
   # Create named types for use in the `pdoc` documentation.
-  _ArrayLike = typing.TypeVar('_ArrayLike')
-  _DTypeLike = typing.TypeVar('_DTypeLike')
-  _NDArray = typing.TypeVar('_NDArray')
-  _DType = typing.TypeVar('_DType')  # pylint: disable=invalid-name
+  _ArrayLike = TypeVar('_ArrayLike')
+  _DTypeLike = TypeVar('_DTypeLike')
+  _NDArray = TypeVar('_NDArray')
+  _DType = TypeVar('_DType')  # pylint: disable=invalid-name
+  _BaseArray = np.ndarray  # Avoids runtime errors in Python 3.14+.
 
 _IPYTHON_HTML_SIZE_LIMIT = 10**10  # Unlimited seems to be OK now.
-_T = typing.TypeVar('_T')
-_Path = typing.Union[str, 'os.PathLike[str]']
+_T = TypeVar('_T')
+_Path = str | os.PathLike[str]
 
 # Raw PCM sample formats (as in `ffmpeg -formats`) for the audio dtypes that
 # `VideoWriter` is able to feed to `ffmpeg`.  Multi-byte formats lack the
@@ -231,7 +232,7 @@ _config = _Config()
 
 def _open(path: _Path, *args: Any, **kwargs: Any) -> Any:
   """Opens the file; this is a hook for the built-in `open()`."""
-  return open(path, *args, **kwargs)
+  return open(path, *args, **kwargs)  # noqa: PTH123
 
 
 def _path_is_local(path: _Path) -> bool:
@@ -243,7 +244,7 @@ def _path_is_local(path: _Path) -> bool:
 def _search_for_ffmpeg_path() -> str | None:
   """Returns a path to the ffmpeg program, or None if not found."""
   if filename := shutil.which(_config.ffmpeg_name_or_path):
-    return str(filename)
+    return str(pathlib.Path(filename))
   return None
 
 
@@ -308,7 +309,7 @@ def _run(args: str | Sequence[str]) -> None:
       stdout=subprocess.PIPE,
       stderr=subprocess.STDOUT,
       check=False,
-      universal_newlines=True,
+      text=True,
   )
   print(proc.stdout, end='', flush=True)
   if proc.returncode:
@@ -338,18 +339,16 @@ def set_ffmpeg(name_or_path: _Path) -> None:
 
 def set_output_height(num_pixels: int) -> None:
   """Overrides the height of the current output cell, if using Colab."""
-  try:
+  with contextlib.suppress(ModuleNotFoundError, AttributeError):
     # We want to fail gracefully for non-Colab IPython notebooks.
     output = importlib.import_module('google.colab.output')
     s = f'google.colab.output.setIframeHeight("{num_pixels}px")'
     output.eval_js(s)
-  except (ModuleNotFoundError, AttributeError):
-    pass
 
 
 def set_max_output_height(num_pixels: int) -> None:
   """Sets the maximum height of the current output cell, if using Colab."""
-  try:
+  with contextlib.suppress(ModuleNotFoundError, AttributeError):
     # We want to fail gracefully for non-Colab IPython notebooks.
     output = importlib.import_module('google.colab.output')
     s = (
@@ -357,8 +356,6 @@ def set_max_output_height(num_pixels: int) -> None:
         f'0, true, {{maxHeight: {num_pixels}}})'
     )
     output.eval_js(s)
-  except (ModuleNotFoundError, AttributeError):
-    pass
 
 
 # ** Type conversions.
@@ -404,42 +401,43 @@ def to_type(array: _ArrayLike, dtype: _DTypeLike) -> _NDArray:
     Array `a` if it is already of the specified dtype, else a converted array.
   """
   a = np.asarray(array)
-  dtype = np.dtype(dtype)
-  del array
+  dtype2: np.dtype[Any] = np.dtype(dtype)
+  del array, dtype
   if a.dtype != bool:
     _as_valid_media_type(a.dtype)  # Verify that 'a' has a valid dtype.
   if a.dtype == bool:
-    result = a.astype(dtype)
-    if np.issubdtype(dtype, np.unsignedinteger):
-      result = result * dtype.type(np.iinfo(dtype).max)  # pyrefly: ignore[no-matching-overload]
-  elif a.dtype == dtype:
+    result = a.astype(dtype2)
+    if np.issubdtype(dtype2, np.unsignedinteger):
+      # Force in-place multiplication to preserve the exact dtype.
+      np.multiply(result, np.iinfo(dtype2).max, out=result)
+  elif a.dtype == dtype2:
     result = a
-  elif np.issubdtype(dtype, np.unsignedinteger):
+  elif np.issubdtype(dtype2, np.unsignedinteger):
     if np.issubdtype(a.dtype, np.unsignedinteger):
       src_max: float = np.iinfo(a.dtype).max
     else:
       a = np.clip(a, 0.0, 1.0)
       src_max = 1.0
-    dst_max = np.iinfo(dtype).max  # pyrefly: ignore[no-matching-overload]
+    dst_max = np.iinfo(dtype2).max
     if dst_max <= np.iinfo(np.uint16).max:
       scale = np.array(dst_max / src_max, dtype=np.float32)
-      result = (a * scale + 0.5).astype(dtype)
+      result = (a * scale + 0.5).astype(dtype2)
     elif dst_max <= np.iinfo(np.uint32).max:
-      result = (a.astype(np.float64) * (dst_max / src_max) + 0.5).astype(dtype)
+      result = (a.astype(np.float64) * (dst_max / src_max) + 0.5).astype(dtype2)
     else:
       # https://stackoverflow.com/a/66306123/
       a = a.astype(np.float64) * (dst_max / src_max) + 0.5
       dst = np.atleast_1d(a)
       values_too_large = dst >= np.float64(dst_max)
       with np.errstate(invalid='ignore'):
-        dst = dst.astype(dtype)
+        dst = dst.astype(dtype2)
       dst[values_too_large] = dst_max
       result = dst if a.ndim > 0 else dst[0]
   else:
-    assert np.issubdtype(dtype, np.floating)
-    result = a.astype(dtype)
+    assert np.issubdtype(dtype2, np.floating)
+    result = a.astype(dtype2)
     if np.issubdtype(a.dtype, np.unsignedinteger):
-      result = result / dtype.type(np.iinfo(a.dtype).max)
+      result = result / dtype2.type(np.iinfo(a.dtype).max)
   return result
 
 
@@ -646,10 +644,9 @@ def resize_image(image: _ArrayLike, shape: tuple[int, int]) -> _NDArray:
       image.dtype == np.uint8 and image.ndim == 3 and image.shape[2] in (3, 4)
   )
   if supported_single_channel or supported_multichannel:
+    h, w = shape
     return np.array(
-        _pil_image(image).resize(
-            shape[::-1], resample=PIL.Image.Resampling.LANCZOS
-        ),
+        _pil_image(image).resize((w, h), resample=PIL.Image.Resampling.LANCZOS),
         dtype=image.dtype,
     )
   if image.ndim == 2:
@@ -703,7 +700,7 @@ def read_contents(path_or_url: _Path) -> bytes:
 
 
 @contextlib.contextmanager
-def _read_via_local_file(path_or_url: _Path) -> Iterator[str]:
+def _read_via_local_file(path_or_url: _Path) -> Generator[str, None, None]:
   """Context to copy a remote file locally to read from it.
 
   Args:
@@ -723,7 +720,7 @@ def _read_via_local_file(path_or_url: _Path) -> Iterator[str]:
 
 
 @contextlib.contextmanager
-def _write_via_local_file(path: _Path) -> Iterator[str]:
+def _write_via_local_file(path: _Path) -> Generator[str, None, None]:
   """Context to write a temporary local file and subsequently copy it remotely.
 
   Args:
@@ -797,7 +794,7 @@ def read_image(
     path_or_url: _Path,
     *,
     apply_exif_transpose: bool = True,
-    dtype: _DTypeLike = None,  # pyrefly: ignore[bad-function-definition]
+    dtype: _DTypeLike | None = None,
 ) -> _NDArray:
   """Returns an image read from a file path or URL.
 
@@ -868,12 +865,13 @@ def to_rgb(
   # vmax = np.amax(a, where=np.isfinite(a)) if vmax is None else vmax
   vmin = np.amin(np.where(np.isfinite(a), a, np.inf)) if vmin is None else vmin
   vmax = np.amax(np.where(np.isfinite(a), a, -np.inf)) if vmax is None else vmax
-  a = (a.astype('float') - vmin) / (vmax - vmin + np.finfo(float).eps)
+  a = (a.astype('float') - vmin) / (vmax - vmin + np.finfo(float).eps)  # pylint: disable=no-member
   if isinstance(cmap, str):
     if hasattr(matplotlib, 'colormaps'):
       rgb_from_scalar: Any = matplotlib.colormaps[cmap]  # Newer version.
     else:
-      rgb_from_scalar = matplotlib.pyplot.cm.get_cmap(cmap)  # pylint: disable=no-member
+      # pylint: disable-next=no-member
+      rgb_from_scalar = matplotlib.pyplot.cm.get_cmap(cmap)  # type: ignore[attr-defined, unused-ignore]
   else:
     rgb_from_scalar = cmap
   a = typing.cast(_NDArray, rgb_from_scalar(a))
@@ -901,7 +899,9 @@ def compress_image(
 
 
 def decompress_image(
-    data: bytes, dtype: _DTypeLike = None, apply_exif_transpose: bool = True  # pyrefly: ignore[bad-function-definition]
+    data: bytes,
+    dtype: _DTypeLike | None = None,
+    apply_exif_transpose: bool = True,
 ) -> _NDArray:
   """Returns an image from a compressed data buffer.
 
@@ -916,9 +916,7 @@ def decompress_image(
   """
   pil_image: PIL.Image.Image = PIL.Image.open(io.BytesIO(data))
   if apply_exif_transpose:
-    tmp_image = PIL.ImageOps.exif_transpose(pil_image)  # Future: in_place=True.
-    assert tmp_image
-    pil_image = tmp_image
+    pil_image = PIL.ImageOps.exif_transpose(pil_image)  # Future: in_place=True.
   if dtype is None:
     dtype = np.uint16 if pil_image.mode.startswith('I') else np.uint8
   return np.array(pil_image, dtype=dtype)
@@ -977,7 +975,7 @@ def _get_width_height(
     return width, int(width * (shape[0] / shape[1]) + 0.5)
   if height and not width:
     return int(height * (shape[1] / shape[0]) + 0.5), height
-  return shape[::-1]  # pyrefly: ignore[bad-return]
+  return shape[1], shape[0]
 
 
 def _ensure_mapped_to_rgb(
@@ -1079,23 +1077,26 @@ def show_images(
   Returns:
     html string if `return_html` is `True`.
   """
+  list_titles: list[str | None]
   if isinstance(images, Mapping):
     if titles is not None:
       raise ValueError('Cannot have images dictionary and titles parameter.')
-    list_titles, list_images = list(images.keys()), list(images.values())
+    list_images0 = list(images.values())
+    list_titles = typing.cast(list[str | None], list(images.keys()))
   else:
-    list_images = list(images)
-    list_titles = [None] * len(list_images) if titles is None else list(titles)
-    if len(list_images) != len(list_titles):
+    list_images0 = list(images)
+    list_titles = [None] * len(list_images0) if titles is None else list(titles)
+    if len(list_images0) != len(list_titles):
       raise ValueError(
           'Number of images does not match number of titles'
-          f' ({len(list_images)} vs {len(list_titles)}).'
+          f' ({len(list_images0)} vs {len(list_titles)}).'
       )
 
   list_images = [
       _ensure_mapped_to_rgb(image, vmin=vmin, vmax=vmax, cmap=cmap)
-      for image in list_images
+      for image in list_images0
   ]
+  del list_images0
 
   def maybe_downsample(image: _NDArray) -> _NDArray:
     shape = image.shape[0], image.shape[1]
@@ -1117,12 +1118,13 @@ def show_images(
   def html_from_compressed_images() -> str:
     html_strings = []
     for image, title, png_data in zip(list_images, list_titles, png_datas):
-      w, h = _get_width_height(width, height, image.shape[:2])  # pyrefly: ignore[missing-attribute]
-      magnified = h > image.shape[0] or w > image.shape[1]  # pyrefly: ignore[missing-attribute]
+      shape = image.shape[0], image.shape[1]
+      w, h = _get_width_height(width, height, shape)
+      magnified = h > image.shape[0] or w > image.shape[1]
       pixelated2 = pixelated if pixelated is not None else magnified
       html_strings.append(
           html_from_compressed_image(
-              png_data, w, h, title=title, border=border, pixelated=pixelated2  # pyrefly: ignore[bad-argument-type]
+              png_data, w, h, title=title, border=border, pixelated=pixelated2
           )
       )
     # Create single-row tables each with no more than 'columns' elements.
@@ -1271,7 +1273,7 @@ def _run_ffmpeg(
   env: Any = None  # pylint: disable=unused-variable
   ffmpeg_path = _get_ffmpeg_path()
 
-  # Sandbox max runtime, allowed input and ouput files are not supported in
+  # Sandbox max runtime, allowed input and output files are not supported in
   # open source.
   del allowed_input_files
   del allowed_output_files
@@ -1365,10 +1367,7 @@ def _get_video_metadata(path: _Path) -> VideoMetadata:
       # will try to parse the framerate as x1000.
       if match := re.search(r', ([\d.]+)(k?) fps', line):
         number = float(match.group(1))
-        if match.group(2) == 'k':
-          fps = number * 1000
-        else:
-          fps = number
+        fps = number * 1000 if match.group(2) == 'k' else number
       elif str(path).endswith('.gif'):
         # Some GIF files lack a framerate attribute; use a reasonable default.
         fps = 10
@@ -1397,7 +1396,7 @@ class _VideoIO:
   def _get_pix_fmt(self, dtype: _DType, image_format: str) -> str:
     """Returns ffmpeg pix_fmt given data type and image format."""
     native_endian_suffix = {'little': 'le', 'big': 'be'}[sys.byteorder]
-    return {
+    pix_fmt_map: dict[type[np.generic], dict[str, str]] = {
         np.uint8: {
             'rgb': 'rgb24',
             'yuv': 'yuv444p',
@@ -1408,7 +1407,9 @@ class _VideoIO:
             'yuv': 'yuv444p16' + native_endian_suffix,
             'gray': 'gray16' + native_endian_suffix,
         },
-    }[dtype.type][image_format]  # pyrefly: ignore[bad-index]
+    }
+    scalar_type = typing.cast(type[np.generic], dtype.type)
+    return pix_fmt_map[scalar_type][image_format]
 
 
 class VideoReader(_VideoIO):
@@ -1484,7 +1485,7 @@ class VideoReader(_VideoIO):
     self._popen: subprocess.Popen[bytes] | None = None
     self._proc: subprocess.Popen[bytes] | None = None
 
-  def __enter__(self) -> 'VideoReader':
+  def __enter__(self) -> VideoReader:
     try:
       self._read_via_local_file = _read_via_local_file(self.path_or_url)
       # pylint: disable-next=no-member
@@ -1561,7 +1562,7 @@ class VideoReader(_VideoIO):
           f' frame read: expected {self._num_bytes_per_image} bytes, but got'
           f' {len(data)}.\nffmpeg stderr:\n{stderr_output}'
       )
-    image = np.frombuffer(data, dtype=self.dtype)
+    image: _NDArray = np.frombuffer(data, dtype=self.dtype)
     if self.output_format == 'rgb':
       image = image.reshape(*self.shape, 3)
     elif self.output_format == 'yuv':  # Convert from planar YUV to pixel YUV.
@@ -1684,7 +1685,7 @@ class VideoWriter(_VideoIO):
       raise ValueError(f'Frame-per-second value {fps} is invalid.')
     if bps is None and metadata:
       bps = metadata.bps
-    bps = int(bps) if bps is not None else None
+    bps = bps if bps is not None else None
     if bps is not None and bps <= 0:
       raise ValueError(f'Bitrate value {bps} is invalid.')
     if qp is not None and (not isinstance(qp, int) or qp < 0):
@@ -1765,7 +1766,7 @@ class VideoWriter(_VideoIO):
     self._exit_stack: contextlib.ExitStack | None = None
     self._proc: subprocess.Popen[bytes] | None = None
 
-  def __enter__(self) -> 'VideoWriter':
+  def __enter__(self) -> VideoWriter:
     input_pix_fmt = self._get_pix_fmt(self.dtype, self.input_format)
     try:
       self._exit_stack = contextlib.ExitStack()
@@ -1917,16 +1918,16 @@ class VideoWriter(_VideoIO):
           raise RuntimeError(f"Error writing '{self.path}': {s}")
 
 
-class _VideoArray(np.ndarray):
+class _VideoArray(_BaseArray):
   """Wrapper to add a VideoMetadata `metadata` attribute to a numpy array."""
 
   metadata: VideoMetadata | None
 
   def __new__(
-      cls: typing.Type['_VideoArray'],
+      cls: type[_VideoArray],
       input_array: _NDArray,
       metadata: VideoMetadata | None = None,
-  ) -> '_VideoArray':
+  ) -> _VideoArray:
     obj: _VideoArray = np.asarray(input_array).view(cls)
     obj.metadata = metadata
     return obj
@@ -2163,13 +2164,14 @@ def show_videos(
   Returns:
     html string if `return_html` is `True`.
   """
+  list_titles: list[str | None]
   if isinstance(videos, Mapping):
     if titles is not None:
       raise ValueError(
           'Cannot have both a video dictionary and a titles parameter.'
       )
-    list_titles = list(videos.keys())
     list_videos = list(videos.values())
+    list_titles = typing.cast(list[str | None], list(videos.keys()))
   else:
     list_videos = list(typing.cast('Iterable[_NDArray]', videos))
     list_titles = [None] * len(list_videos) if titles is None else list(titles)
@@ -2207,11 +2209,13 @@ def show_videos(
   for video, title, video_audio in zip(list_videos, list_titles, list_audios):
     metadata: VideoMetadata | None = getattr(video, 'metadata', None)
     first_image, video = _peek_first(video)
-    w, h = _get_width_height(width, height, first_image.shape[:2])
-    if downsample and (w < first_image.shape[1] or h < first_image.shape[0]):
+    first_h, first_w = first_image.shape[:2]
+    w, h = _get_width_height(width, height, (first_h, first_w))
+    if downsample and (w < first_w or h < first_h):
       # Not resize_video() because each image may have different depth and type.
       video = [resize_image(image, (h, w)) for image in video]
       first_image = video[0]
+      first_h, first_w = first_image.shape[:2]
     data = compress_video(
         video,
         metadata=metadata,
@@ -2229,13 +2233,13 @@ def show_videos(
       with _open(path, mode='wb') as f:
         f.write(data)
     if codec == 'gif':
-      pixelated = h > first_image.shape[0] or w > first_image.shape[1]
+      pixelated = h > first_h or w > first_w
       html_string = html_from_compressed_image(
-          data, w, h, title=title, fmt='gif', pixelated=pixelated, **kwargs  # pyrefly: ignore[bad-argument-type]
+          data, w, h, title=title, fmt='gif', pixelated=pixelated, **kwargs
       )
     else:
       html_string = html_from_compressed_video(
-          data, w, h, title=title, **kwargs  # pyrefly: ignore[bad-argument-type]
+          data, w, h, title=title, **kwargs
       )
     html_strings.append(html_string)
 
