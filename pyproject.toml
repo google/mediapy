@@ -101,7 +101,7 @@ expected-line-ending-format = "LF"
 
 [tool.pyrefly]
 min-severity = "warn"
-project-excludes = ["*.ipynb"]
+project-includes = ["**/*.py"]
 
 [tool.ruff]
 extend-exclude = ["*.ipynb"]
