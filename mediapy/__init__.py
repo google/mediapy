@@ -411,7 +411,7 @@ def to_type(array: _ArrayLike, dtype: _DTypeLike) -> _NDArray:
   if a.dtype == bool:
     result = a.astype(dtype)
     if np.issubdtype(dtype, np.unsignedinteger):
-      result = result * dtype.type(np.iinfo(dtype).max)  # pyrefly: ignore[no-matching-overload]
+      result = result * dtype.type(np.iinfo(dtype).max)  # pyrefly: ignore[no-matching-overload, unsupported-operation]
   elif a.dtype == dtype:
     result = a
   elif np.issubdtype(dtype, np.unsignedinteger):
@@ -439,7 +439,7 @@ def to_type(array: _ArrayLike, dtype: _DTypeLike) -> _NDArray:
     assert np.issubdtype(dtype, np.floating)
     result = a.astype(dtype)
     if np.issubdtype(a.dtype, np.unsignedinteger):
-      result = result / dtype.type(np.iinfo(a.dtype).max)
+      result = result / dtype.type(np.iinfo(a.dtype).max)  # pyrefly: ignore[unsupported-operation]
   return result
 
 
