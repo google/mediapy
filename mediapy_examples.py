@@ -105,7 +105,7 @@ media.write_image('/tmp/image3.png', image3)
 
 # %%
 # Display a video (a 3D or 4D array, or an iterable of images):
-video1 = media.moving_circle((65, 65), num_images=10)
+video1 = media.moving_circle((64, 64), num_images=10)
 media.show_video(video1, fps=2)
 
 # %%
