@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Create HTML documentation from the source code using `pdoc`."""
+
 # Note: Invoke this from the parent directory as "python3 pdoc_files/make.py".
 
 import pathlib
