@@ -1519,7 +1519,7 @@ class VideoReader(_VideoIO):
           f'0:v:{self.stream_index}',
           '-pix_fmt',
           pix_fmt,
-          '-vsync',
+          '-fps_mode',
           'vfr',
           '-',
       ]
