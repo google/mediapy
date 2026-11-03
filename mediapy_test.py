@@ -126,6 +126,18 @@ class MediapyTest(parameterized.TestCase):
     self.assertEqual(list(media._chunked(range(1), 3)), [(0,)])
     self.assertEqual(list(media._chunked(range(2), 3)), [(0, 1)])
     self.assertEqual(list(media._chunked(range(3), 3)), [(0, 1, 2)])
+
+  @parameterized.parameters(
+      ('-fps_mode[:<stream_spec>] <> set framerate mode', '-fps_mode'),
+      ('-vsync <> set video sync method globally', '-vsync'),
+  )
+  def test_ffmpeg_fps_mode_option(self, help_output, expected):
+    media._ffmpeg_fps_mode_option.cache_clear()
+    self.addCleanup(media._ffmpeg_fps_mode_option.cache_clear)
+    proc = mock.MagicMock()
+    proc.__enter__.return_value.communicate.return_value = (help_output, '')
+    with mock.patch.object(media, '_run_ffmpeg', return_value=proc):
+      self.assertEqual(media._ffmpeg_fps_mode_option('ffmpeg'), expected)
     self.assertEqual(list(media._chunked(range(4), 3)), [(0, 1, 2), (3,)])
     self.assertEqual(list(media._chunked(range(5), 3)), [(0, 1, 2), (3, 4)])
 
