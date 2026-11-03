@@ -1297,6 +1297,19 @@ def _run_ffmpeg(
   )
 
 
+@functools.cache
+def _ffmpeg_fps_mode_option(ffmpeg_path: str) -> str:
+  """Returns '-fps_mode' (FFmpeg 5.1+), or '-vsync' for older FFmpeg."""
+  del ffmpeg_path  # Only used as the cache key.
+  with _run_ffmpeg(
+      ['-hide_banner', '-h', 'full'],
+      stdout=subprocess.PIPE,
+      encoding='utf-8',
+  ) as proc:
+    output, _ = proc.communicate()
+  return '-fps_mode' if '-fps_mode' in output else '-vsync'
+
+
 def video_is_available() -> bool:
   """Returns True if the program `ffmpeg` is found.
 
@@ -1340,8 +1353,8 @@ def _get_video_metadata(path: _Path) -> VideoMetadata:
       # Previously, was `'-vcodec', 'copy'`
       '-vf',
       'select=1',
-      '-vsync',
-      '0',
+      _ffmpeg_fps_mode_option(_get_ffmpeg_path()),
+      'passthrough',
       '-f',
       'null',
       '-',
@@ -1519,7 +1532,7 @@ class VideoReader(_VideoIO):
           f'0:v:{self.stream_index}',
           '-pix_fmt',
           pix_fmt,
-          '-vsync',
+          _ffmpeg_fps_mode_option(_get_ffmpeg_path()),
           'vfr',
           '-',
       ]
